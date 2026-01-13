@@ -24,12 +24,12 @@ import {
 
 // --- FIREBASE CONFIG ---
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-  apiKey: "PASTE_YOUR_API_KEY_HERE",
+  apiKey: "AIzaSyCaHD5UUYK2YXEDRW2ICGJE9M6Wy57ZBGo",
   authDomain: "sipas-rsud-lebong-e6a43.firebaseapp.com",
   projectId: "sipas-rsud-lebong-e6a43",
   storageBucket: "sipas-rsud-lebong-e6a43.firebasestorage.app",
-  messagingSenderId: "SENDER_ID",
-  appId: "APP_ID"
+  messagingSenderId: "477611720744",
+  appId: "1:477611720744:web:743147bc25512317caf51d",
 };
 
 const firebaseApp = initializeApp(firebaseConfig);

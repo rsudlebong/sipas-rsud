@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Trash2, Copy, Save, Users, Home, Heart, Settings,
@@ -202,6 +201,25 @@ const animationStyles = `
       animation: gradientBG 15s ease infinite;
       min-height: 100vh; /* Ensures background fills screen */
       width: 100%;
+  }
+
+  /* --- ALERT GLOW ANIMATION --- */
+  @keyframes alertGlow {
+    0% {
+      box-shadow: 0 0 5px rgba(244, 63, 94, 0.3);
+      border-color: rgba(251, 113, 133, 0.6);
+    }
+    50% {
+      box-shadow: 0 0 25px rgba(244, 63, 94, 0.8), 0 0 10px rgba(244, 63, 94, 0.4) inset;
+      border-color: rgba(225, 29, 72, 1);
+    }
+    100% {
+      box-shadow: 0 0 5px rgba(244, 63, 94, 0.3);
+      border-color: rgba(251, 113, 133, 0.6);
+    }
+  }
+  .alert-card-glow {
+    animation: alertGlow 1.5s infinite ease-in-out;
   }
 `;
 
@@ -1179,7 +1197,7 @@ const App = () => {
     return (
       <div className="space-y-8 animate-in fade-in duration-500">
         {missingRooms.length > 0 && (
-          <GlassContainer className="!bg-rose-50/60 !border-rose-100 rounded-[2rem] p-6 pulse-red">
+          <GlassContainer className="!bg-rose-50/80 rounded-[2rem] p-6 shadow-lg alert-card-glow border-2">
             <div className="flex items-center gap-3 mb-4 text-rose-600"><AlertTriangle size={24} /><h3 className="text-xs font-black uppercase tracking-widest">Peringatan: Belum Lapor</h3></div>
             <div className="flex flex-wrap gap-2">
               {missingRooms.map(r => (

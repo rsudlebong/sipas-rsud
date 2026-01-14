@@ -778,18 +778,38 @@ const App = () => {
 
   const saveRoomConfiguration = async (roomId, newName, username, password) => {
     if (!user) return;
-    try {
-      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId), { name: newName }, { merge: true });
-    } catch (e) { console.error("Error updating room name", e); }
-
-    const updatedAccess = { ...authSettings.roomAccess, [roomId]: { username, password } };
-    const newSettings = { ...authSettings, roomAccess: updatedAccess };
-    setAuthSettings(newSettings);
+    
+    // Ensure data integrity
+    const safeName = newName ? newName.trim() : "";
+    const safeUsername = username ? String(username).trim() : "";
+    const safePassword = password ? String(password).trim() : "";
 
     try {
+      // 1. Simpan Nama Ruangan (jika berubah)
+      if (safeName) {
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId), { name: safeName }, { merge: true });
+      }
+
+      // 2. Simpan Kredensial (Settings)
+      const updatedAccess = { 
+        ...authSettings.roomAccess, 
+        [roomId]: { username: safeUsername, password: safePassword } 
+      };
+      
+      const newSettings = { 
+        ...authSettings, 
+        roomAccess: updatedAccess 
+      };
+      
+      setAuthSettings(newSettings); // Update local state optimistic
+
       await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'auth'), newSettings, { merge: true });
-      showToast(`Konfigurasi ${newName} tersimpan`);
-    } catch (e) { showToast("Gagal menyimpan konfigurasi", "error"); }
+      showToast(`Konfigurasi ${safeName || roomId} tersimpan`);
+      
+    } catch (e) { 
+      console.error("Save config failed:", e);
+      showToast(`Gagal menyimpan: ${e.message}`, "error"); 
+    }
   }
 
   const handleAddRoom = async () => {

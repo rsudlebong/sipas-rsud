@@ -178,9 +178,9 @@ const animationStyles = `
   .scrollbar-hide::-webkit-scrollbar { display: none; }
   .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
   .glass-sidebar {
-    background: rgba(255, 255, 255, 0.8); /* Adjusted transparency for visibility */
-    backdrop-filter: blur(20px);
-    border-right: 1px solid rgba(255, 255, 255, 0.3);
+    background: transparent; /* Makes sidebar background same as main (transparent) */
+    backdrop-filter: blur(15px);
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
   }
   .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
   input[type=number]::-webkit-inner-spin-button, 
@@ -462,7 +462,8 @@ const App = () => {
     followUp: 'Dirawat', exitNote: '',
     isDeadInIGD: false, isDOA: false, isInjury: false, isFalseEmergency: false,
     classRoom: 'III', jknType: 'PBI (APBD)', doctorKonsul: '',
-    tariff: '', icd10Code: '', action: '', hp: '', notes: ''
+    tariff: '', icd10Code: '', action: '', hp: '', notes: '',
+    specialization: '', operationCategory: '', operationStatus: '' // NEW FIELDS FOR OK
   });
 
   const showToast = (msg, type = 'success') => setToast({ message: msg, type });
@@ -577,6 +578,11 @@ const App = () => {
         const realPayment = data.paymentStatus;
         const realJenisOperasi = data.jenisOperasi || ''; 
 
+        // New fields decryption (if encrypted in future, currently simple fields)
+        const realSpecialization = data.specialization || '';
+        const realOperationCategory = data.operationCategory || '';
+        const realOperationStatus = data.operationStatus || '';
+
         if (isPatientLocked) {
           // Jika terkunci, tampilkan mask (••••) tapi pertahankan statistik room/payment
           return {
@@ -584,7 +590,8 @@ const App = () => {
             name: '••••', age: '••', room: realRoom, address: '••••',
             paymentStatus: realPayment, admissionDate: '•••',
             statsRoom: realRoom, statsPayment: realPayment,
-            jenisOperasi: realJenisOperasi
+            jenisOperasi: realJenisOperasi,
+            specialization: realSpecialization, operationCategory: realOperationCategory, operationStatus: realOperationStatus
           };
         }
 
@@ -595,7 +602,8 @@ const App = () => {
           paymentStatus: realPayment,
           admissionDate: data.admissionDate || new Date().toISOString().split('T')[0],
           statsRoom: realRoom, statsPayment: realPayment,
-          jenisOperasi: realJenisOperasi
+          jenisOperasi: realJenisOperasi,
+          specialization: realSpecialization, operationCategory: realOperationCategory, operationStatus: realOperationStatus
         };
       });
       setPatients(decryptedData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
@@ -616,9 +624,11 @@ const App = () => {
 
     const okPatients = patients.filter(p => p.room && (p.room.includes('OK') || p.room.includes('BEDAH SENTRAL')));
     if (okPatients.length > 0) {
-        stats.okObgynElektif = okPatients.filter(p => p.jenisOperasi === 'Obgyn Elektif').length;
-        stats.okObgynCito = okPatients.filter(p => p.jenisOperasi === 'Obgyn Cito').length;
-        stats.okBedahElektif = okPatients.filter(p => p.jenisOperasi === 'Bedah Umum').length;
+        // OLD LOGIC BACKWARD COMPATIBILITY + NEW LOGIC
+        stats.okObgynElektif = okPatients.filter(p => (p.jenisOperasi === 'Obgyn Elektif') || (p.specialization === 'Obstetri dan Ginekologi' && p.operationStatus === 'Elektif')).length;
+        stats.okObgynCito = okPatients.filter(p => (p.jenisOperasi === 'Obgyn Cito') || (p.specialization === 'Obstetri dan Ginekologi' && p.operationStatus === 'Cito')).length;
+        stats.okBedahElektif = okPatients.filter(p => (p.jenisOperasi === 'Bedah Umum') || (p.specialization === 'Bedah' && p.operationStatus === 'Elektif')).length;
+        stats.okBedahCito = okPatients.filter(p => (p.specialization === 'Bedah' && p.operationStatus === 'Cito')).length;
     }
 
     return stats;
@@ -699,7 +709,8 @@ const App = () => {
       followUp: 'Dirawat', exitNote: '',
       isDeadInIGD: false, isDOA: false, isInjury: false, isFalseEmergency: false,
       classRoom: 'III', jknType: 'PBI (APBD)', doctorKonsul: '',
-      tariff: '', icd10Code: '', action: '', hp: '', notes: ''
+      tariff: '', icd10Code: '', action: '', hp: '', notes: '',
+      specialization: '', operationCategory: '', operationStatus: '' // NEW FIELDS FOR OK
     });
     setIsPatientModalOpen(true);
   };
@@ -866,6 +877,11 @@ const App = () => {
         hp: patientFormData.hp || '',
         notes: patientFormData.notes || '',
 
+        // NEW FIELDS FOR OK (Laporan OK.xlsx)
+        specialization: patientFormData.specialization || '',
+        operationCategory: patientFormData.operationCategory || '',
+        operationStatus: patientFormData.operationStatus || '',
+
         updatedAt: new Date().toISOString(),
         updatedBy: user.uid
       };
@@ -880,7 +896,7 @@ const App = () => {
         showToast("Data Berhasil Disimpan!");
         setEditingPatient(null);
         const defaultRoomName = loggedInRoomId ? rooms.find(r => r.id === loggedInRoomId)?.name || '' : '';
-        setPatientFormData({ name: '', age: '', room: defaultRoomName, address: '', gender: 'Laki-Laki', paymentStatus: 'BPJS', admissionDate: new Date().toISOString().split('T')[0], status: 'Dirawat /Inap', outcomeDate: '', jenisOperasi: '' });
+        setPatientFormData({ name: '', age: '', room: defaultRoomName, address: '', gender: 'Laki-Laki', paymentStatus: 'BPJS', admissionDate: new Date().toISOString().split('T')[0], status: 'Dirawat /Inap', outcomeDate: '', jenisOperasi: '', specialization: '', operationCategory: '', operationStatus: '' });
       } catch (e) {
         if (e.code === 'permission-denied') showToast("Akses Ditolak: Cek Rules Firebase Anda", "error");
         else showToast("Gagal simpan: Error jaringan", "error");
@@ -907,7 +923,14 @@ const App = () => {
 
   const handlePatientSubmit = async (e) => {
     e.preventDefault();
-    if (!user || isPatientLocked) return;
+    if (!user) {
+        showToast("Anda harus login terlebih dahulu", "error");
+        return;
+    }
+    if (isPatientLocked) {
+        showToast("Akses Terkunci! Masukkan kode gembok untuk menyimpan.", "error");
+        return;
+    }
 
     if (!patientFormData.name || !patientFormData.age || !patientFormData.address || !patientFormData.admissionDate || !patientFormData.room) {
       showToast("Gagal simpan: Semua data wajib diisi!", "error");
@@ -996,6 +1019,35 @@ const App = () => {
                 <td style="${borderStyle}">${p.entryStatus || ''}</td><td style="${borderStyle}">${p.serviceType || ''}</td><td style="${borderStyle}">${p.followUp || ''}</td>
                 <td style="${borderStyle}">${p.exitNote || ''}</td><td style="${centerStyle}">${p.isDeadInIGD ? 'V' : ''}</td><td style="${centerStyle}">${p.isDOA ? 'V' : ''}</td>
                 <td style="${centerStyle}">${p.isInjury ? 'V' : ''}</td><td style="${centerStyle}">${p.isFalseEmergency ? 'V' : ''}</td>
+              </tr>`;
+        });
+    } else if (isOK) {
+        // --- LAYOUT LAPORAN KAMAR OPERASI (SESUAI EXCEL) ---
+        tableHeader = `
+          <tr>
+            <th style="${thStyle}">No</th><th style="${thStyle}">Nomor RM</th><th style="${thStyle}">Nama Pasien</th><th style="${thStyle}">Nomor NIK / BPJS</th>
+            <th style="${thStyle}">Jenis Pembayaran</th><th style="${thStyle}">Jenis Kepesertaan JKN</th><th style="${thStyle}">Jenis Kelamin</th><th style="${thStyle}">Tanggal Lahir</th>
+            <th style="${thStyle}">Umur (Tahun)</th><th style="${thStyle}">Umur (Bulan)</th><th style="${thStyle}">Umur (Hari)</th>
+            <th style="${thStyle}">Alamat</th><th style="${thStyle}">Tanggal Operasi</th><th style="${thStyle}">Dokter DPJP</th>
+            <th style="${thStyle}">Spesialisasi</th><th style="${thStyle}">Jenis Operasi</th><th style="${thStyle}">Tindakan Operasi</th>
+            <th style="${thStyle}">Diagnosa Utama</th><th style="${thStyle}">Tindakan</th><th style="${thStyle}">Keterangan</th>
+          </tr>`;
+        
+        patientsToDownload.forEach((p, index) => {
+            const admissionDate = p.admissionDate ? formatDateID(p.admissionDate) : ''; // Use Admission Date as Tanggal Operasi
+            const birthDate = p.birthDate ? formatDateID(p.birthDate) : '';
+            // Construct Jenis Pembayaran like "BPJS Kelas III"
+            let jenisBayarFull = p.paymentStatus;
+            if (p.paymentStatus === 'BPJS' && p.classRoom) jenisBayarFull += ` Kelas ${p.classRoom}`;
+
+            tableRows += `
+              <tr>
+                <td style="${centerStyle}">${index + 1}</td><td style="${textStyle}">${p.mrn || ''}</td><td style="${borderStyle}">${p.name}</td><td style="${textStyle}">${p.nik || ''}</td>
+                <td style="${borderStyle}">${jenisBayarFull}</td><td style="${borderStyle}">${p.jknType || ''}</td><td style="${borderStyle}">${p.gender}</td><td style="${centerStyle}">${birthDate}</td>
+                <td style="${centerStyle}">${p.age} tahun</td><td style="${centerStyle}">${p.ageMonth || 0} Bulan</td><td style="${centerStyle}">${p.ageDay || 0} Hari</td>
+                <td style="${borderStyle}">${p.address}</td><td style="${centerStyle}">${admissionDate}</td><td style="${borderStyle}">${p.doctorDPJP || ''}</td>
+                <td style="${borderStyle}">${p.specialization || ''}</td><td style="${borderStyle}">${p.operationCategory || ''}</td><td style="${borderStyle}">${p.operationStatus || ''}</td>
+                <td style="${borderStyle}">${p.diagnosisPrimary || ''}</td><td style="${borderStyle}">${p.action || ''}</td><td style="${borderStyle}">${p.notes || ''}</td>
               </tr>`;
         });
     } else if (isInpatient) {
@@ -1278,7 +1330,7 @@ const App = () => {
   }
 
   if (isStaffLoggedIn || isAdmin) {
-    navItems.push({ id: 'preview', label: 'Salin Teks', icon: Copy, activeIconBg: 'bg-teal-500' });
+    // REMOVED 'Salin Teks' TAB HERE
     navItems.push({ id: 'download', label: 'Laporan', icon: FileSpreadsheet, activeIconBg: 'bg-emerald-600' });
   }
 
@@ -1343,7 +1395,7 @@ const App = () => {
         )}
 
         {/* --- SIDEBAR --- */}
-        <aside className="hidden md:flex w-72 flex-col m-0 h-screen bg-white/20 backdrop-blur-xl border-r border-white/30 shadow-2xl z-50 fixed left-0 top-0 bottom-0 glass-sidebar">
+        <aside className="hidden md:flex w-72 flex-col m-0 h-screen backdrop-blur-xl border-r border-white/30 shadow-2xl z-50 fixed left-0 top-0 bottom-0 glass-sidebar">
           <div className="p-8 pb-6 shrink-0">
             <div className="flex items-center gap-4 mb-3">
               <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-indigo-600/20"><Activity size={28} /></div>
@@ -1549,13 +1601,19 @@ const App = () => {
                                     <div className="flex gap-2 mt-2 items-center flex-wrap">
                                       <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded-lg font-bold text-slate-500 uppercase">{p.gender}</span>
                                       <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded-lg font-bold text-slate-500 uppercase">{p.age} Thn</span>
-                                      <span className={`text-[10px] px-2 py-0.5 rounded-lg font-bold uppercase ${p.status === 'Dirawat /Inap' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-500'}`}>{p.status}</span>
-                                      <span className={`text-[10px] px-2 py-0.5 rounded-lg font-bold uppercase ${p.paymentStatus === 'BPJS' ? 'bg-sky-100 text-sky-600' : p.paymentStatus === 'GR' ? 'bg-purple-100 text-purple-600' : 'bg-amber-100 text-amber-600'}`}>{p.paymentStatus}</span>
-                                      {p.jenisOperasi && (
-                                        <span className="text-[10px] px-2 py-0.5 rounded-lg font-bold uppercase bg-pink-100 text-pink-600 border border-pink-200">
-                                            {p.jenisOperasi}
-                                        </span>
+                                      
+                                      {/* SPECIAL BADGES FOR OK */}
+                                      {['OK (BEDAH SENTRAL)', 'KAMAR OPERASI'].some(r => p.room.toUpperCase().includes(r)) ? (
+                                        <>
+                                          <span className="text-[10px] bg-purple-100 text-purple-600 px-2 py-0.5 rounded-lg font-bold uppercase">{p.specialization}</span>
+                                          <span className="text-[10px] bg-pink-100 text-pink-600 px-2 py-0.5 rounded-lg font-bold uppercase">{p.operationCategory}</span>
+                                          <span className="text-[10px] bg-orange-100 text-orange-600 px-2 py-0.5 rounded-lg font-bold uppercase">{p.operationStatus}</span>
+                                        </>
+                                      ) : (
+                                        <span className={`text-[10px] px-2 py-0.5 rounded-lg font-bold uppercase ${p.status === 'Dirawat /Inap' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-500'}`}>{p.status}</span>
                                       )}
+
+                                      <span className={`text-[10px] px-2 py-0.5 rounded-lg font-bold uppercase ${p.paymentStatus === 'BPJS' ? 'bg-sky-100 text-sky-600' : p.paymentStatus === 'GR' ? 'bg-purple-100 text-purple-600' : 'bg-amber-100 text-amber-600'}`}>{p.paymentStatus}</span>
                                     </div>
                                   </div>
                                 </div>
@@ -1564,7 +1622,7 @@ const App = () => {
                                     <button onClick={() => { setEditingPatient(p); setPatientFormData(p); setIsPatientModalOpen(true); }} className="p-3 bg-indigo-50 rounded-xl text-indigo-600 hover:bg-indigo-600 hover:text-white transition-colors shadow-sm"><Edit3 size={18} /></button>
                                     <button onClick={() => setConfirmModal({ isOpen: true, type: 'patient', id: p.id, message: `Hapus pasien ${p.name}?` })} className="p-3 bg-rose-50 rounded-xl text-rose-600 hover:bg-rose-600 hover:text-white transition-colors shadow-sm"><Trash2 size={18} /></button>
                                   </div>
-                                  <span className="text-[9px] font-black text-slate-400 bg-slate-50 px-3 py-1 rounded-full">Masuk: {formatDateID(p.admissionDate)}</span>
+                                  <span className="text-[9px] font-black text-slate-400 bg-slate-50 px-3 py-1 rounded-full">{['OK (BEDAH SENTRAL)', 'KAMAR OPERASI'].some(r => p.room.toUpperCase().includes(r)) ? 'Operasi' : 'Masuk'}: {formatDateID(p.admissionDate)}</span>
                                 </div>
                               </GlassContainer>
                             ))
@@ -1581,19 +1639,6 @@ const App = () => {
                 </div>
               )}
 
-              {activeTab === 'preview' && (
-                <div className="h-full flex flex-col gap-6 animate-in slide-in-from-right duration-500 pb-32 md:pb-6">
-                  <GlassContainer className="flex-1 rounded-[2.5rem] p-10 text-slate-700 font-mono text-sm overflow-y-auto shadow-2xl border-white/60 leading-relaxed whitespace-pre-wrap">
-                    {formatReportText(finalReport, rooms)}
-                  </GlassContainer>
-                  <div className="flex justify-center shrink-0">
-                    <button onClick={() => { copyToClipboard(formatReportText(finalReport, rooms), () => showToast("Teks Berhasil Disalin!")); }} className="bg-indigo-600 text-white px-10 py-4 rounded-full font-black uppercase tracking-widest text-xs shadow-2xl shadow-indigo-600/40 active:scale-95 transition-all flex items-center gap-3 hover:bg-indigo-700 border-4 border-white/20 backdrop-blur-md">
-                      <Copy size={20} /> Salin Teks
-                    </button>
-                  </div>
-                </div>
-              )}
-
               {activeTab === 'download' && (
                 <div className="h-full flex flex-col gap-6 pb-20">
                   <GlassContainer className="p-8 rounded-[2.5rem] flex flex-col gap-6 h-full overflow-hidden">
@@ -1607,13 +1652,6 @@ const App = () => {
                       </div>
 
                       <div className="flex items-center gap-4">
-                        <button
-                          onClick={() => { copyToClipboard(formatReportText(finalReport, rooms), () => showToast("Teks Berhasil Disalin!")); }}
-                          className="bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200 px-4 py-3 rounded-xl font-bold text-xs transition-all flex items-center gap-2"
-                        >
-                          <Copy size={16} /> Salin Teks
-                        </button>
-
                         {isAdmin && (
                           <div className="relative">
                             <select
@@ -1721,7 +1759,7 @@ const App = () => {
                         <div className="flex items-center gap-3">
                           <button onClick={() => { setEditFormData(item); setEditingId(item.id); }} className="p-3 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-600 hover:text-white transition-all shadow-sm"><Edit3 size={20} /></button>
                           <button onClick={() => setConfirmModal({ isOpen: true, type: 'report', id: item.id, message: 'Hapus data laporan ini secara permanen?' })} className="p-3 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-600 hover:text-white transition-all shadow-sm"><Trash2 size={20} /></button>
-                          <button onClick={() => { copyToClipboard(formatReportText(item, rooms), () => showToast("Disalin!")); }} className="px-6 py-3 bg-blue-600 text-white rounded-xl font-black uppercase text-[10px] tracking-widest active:scale-95 transition-all shadow-lg hover:bg-black">Salin</button>
+                          {/* REMOVED COPY BUTTON HERE */}
                         </div>
                       </GlassContainer>
                     ))}
@@ -1937,14 +1975,14 @@ const App = () => {
         {isPatientModalOpen && (
           <div className="fixed inset-0 z-[2000] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 animate-in zoom-in-95 duration-300">
             <div className="absolute inset-0" onClick={() => setIsPatientModalOpen(false)}></div>
-            <GlassContainer className={`relative w-full ${['IGD', 'IGD PONEK'].includes(patientFormData.room) || (!['OK (BEDAH SENTRAL)', 'HEMODIALISA'].includes(patientFormData.room) && patientFormData.room !== '') ? 'max-w-4xl' : 'max-w-lg'} rounded-[3rem] shadow-2xl overflow-hidden bg-white/80 backdrop-blur-xl border border-white/50 flex flex-col max-h-[85vh]`}>
+            <GlassContainer className={`relative w-full ${['IGD', 'IGD PONEK'].includes(patientFormData.room) || (patientFormData.room && (patientFormData.room.toUpperCase().includes('OK') || patientFormData.room.toUpperCase().includes('BEDAH SENTRAL') || !['OK (BEDAH SENTRAL)', 'HEMODIALISA'].includes(patientFormData.room))) ? 'max-w-4xl' : 'max-w-lg'} rounded-[3rem] shadow-2xl overflow-hidden bg-white/80 backdrop-blur-xl border border-white/50 flex flex-col max-h-[85vh]`}>
               <div className="shrink-0 px-10 py-6 border-b border-slate-200 flex justify-between items-center bg-white/50 backdrop-blur-sm">
                 <div>
                   <h2 className="text-xl font-black uppercase tracking-tight text-slate-800">
-                      {['IGD', 'IGD PONEK'].includes(patientFormData.room) ? 'Formulir Laporan IGD & PONEK' : 'Data Pasien'}
+                      Data Pasien
                   </h2>
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">
-                      {['IGD', 'IGD PONEK'].includes(patientFormData.room) ? 'Sesuai Standar Laporan UGD 2025' : 'Input Data Ruangan'}
+                      Input Data Ruangan
                   </p>
                 </div>
                 <button onClick={() => setIsPatientModalOpen(false)} className="p-3 hover:bg-white/50 text-slate-500 rounded-full transition-all"><X size={20} /></button>
@@ -2131,12 +2169,208 @@ const App = () => {
                               </div>
                           </div>
                       </div>
-                  ) : !['OK (BEDAH SENTRAL)', 'HEMODIALISA'].includes(patientFormData.room) ? (
+                  ) : ['OK (BEDAH SENTRAL)', 'KAMAR OPERASI'].some(r => patientFormData.room.toUpperCase().includes(r)) ? (
+                    /* =====================================================
+                        LAYOUT KHUSUS KAMAR OPERASI (SESUAI LAPORAN OK.XLSX)
+                        =====================================================
+                    */
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      {/* KOLOM 1: IDENTITAS */}
+                      <div className="space-y-4">
+                        <h4 className="text-xs font-black text-pink-500 uppercase tracking-widest border-b border-pink-100 pb-2 mb-4">1. Identitas Pasien</h4>
+                        
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                                <label className="text-[9px] font-bold text-slate-500 uppercase ml-1">No. Rekam Medis</label>
+                                <input required className="w-full bg-white rounded-xl py-3 px-4 text-xs font-bold border border-slate-200 outline-none focus:border-pink-500 transition-all" value={patientFormData.mrn} onChange={e => setPatientFormData({ ...patientFormData, mrn: e.target.value })} placeholder="00.00.00" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[9px] font-bold text-slate-500 uppercase ml-1">NIK / No BPJS</label>
+                                <input className="w-full bg-white rounded-xl py-3 px-4 text-xs font-bold border border-slate-200 outline-none focus:border-pink-500 transition-all" value={patientFormData.nik} onChange={e => setPatientFormData({ ...patientFormData, nik: e.target.value })} placeholder="NIK / No Kartu" />
+                            </div>
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Nama Pasien</label>
+                            <input required className="w-full bg-white rounded-xl py-3 px-4 text-sm font-bold border border-slate-200 outline-none focus:border-pink-500 transition-all" value={patientFormData.name} onChange={e => setPatientFormData({ ...patientFormData, name: e.target.value })} placeholder="Nama Lengkap" />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                                <label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Jenis Kelamin</label>
+                                <select className="w-full bg-white rounded-xl py-3 px-4 text-xs font-bold border border-slate-200 outline-none focus:border-pink-500" value={patientFormData.gender} onChange={e => setPatientFormData({ ...patientFormData, gender: e.target.value })}>
+                                    <option value="Laki-Laki">Laki-Laki</option>
+                                    <option value="Perempuan">Perempuan</option>
+                                </select>
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Tanggal Lahir</label>
+                                <input 
+                                  type="date" 
+                                  className="w-full bg-white rounded-xl py-3 px-4 text-xs font-bold border border-slate-200 outline-none focus:border-pink-500" 
+                                  value={patientFormData.birthDate} 
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    const { years, months, days } = calculateAgeDetail(val);
+                                    setPatientFormData({ 
+                                      ...patientFormData, 
+                                      birthDate: val,
+                                      age: years,
+                                      ageMonth: months,
+                                      ageDay: days
+                                    });
+                                  }} 
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2">
+                            <div className="space-y-1">
+                                <label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Umur (Thn)</label>
+                                <input type="number" required className="w-full bg-white rounded-xl py-3 px-2 text-center text-xs font-bold border border-slate-200 outline-none focus:border-pink-500" value={patientFormData.age} onChange={e => setPatientFormData({ ...patientFormData, age: e.target.value })} placeholder="0" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Bulan</label>
+                                <input type="number" className="w-full bg-white rounded-xl py-3 px-2 text-center text-xs font-bold border border-slate-200 outline-none focus:border-pink-500" value={patientFormData.ageMonth} onChange={e => setPatientFormData({ ...patientFormData, ageMonth: e.target.value })} placeholder="0" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Hari</label>
+                                <input type="number" className="w-full bg-white rounded-xl py-3 px-2 text-center text-xs font-bold border border-slate-200 outline-none focus:border-pink-500" value={patientFormData.ageDay} onChange={e => setPatientFormData({ ...patientFormData, ageDay: e.target.value })} placeholder="0" />
+                            </div>
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Alamat Domisili</label>
+                            <textarea rows="2" className="w-full bg-white rounded-xl py-3 px-4 text-xs font-bold border border-slate-200 outline-none focus:border-pink-500 resize-none" value={patientFormData.address} onChange={e => setPatientFormData({ ...patientFormData, address: e.target.value })} placeholder="Alamat lengkap..." />
+                        </div>
+
+                        {/* ADMINISTRASI */}
+                        <div className="space-y-4 pt-4 border-t border-dashed border-slate-200">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Jenis Pembayaran</label>
+                                    <select className="w-full bg-white rounded-xl py-3 px-4 text-xs font-bold border border-slate-200 outline-none focus:border-pink-500" value={patientFormData.paymentStatus} onChange={e => setPatientFormData({ ...patientFormData, paymentStatus: e.target.value })}>
+                                        <option value="BPJS">BPJS</option>
+                                        <option value="Umum">Umum</option>
+                                        <option value="GR">GR</option>
+                                        <option value="Jampersal">Jampersal</option>
+                                    </select>
+                                </div>
+                                {patientFormData.paymentStatus === 'BPJS' && (
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Kelas BPJS</label>
+                                        <select className="w-full bg-white rounded-xl py-3 px-4 text-xs font-bold border border-slate-200 outline-none focus:border-pink-500" value={patientFormData.classRoom} onChange={e => setPatientFormData({ ...patientFormData, classRoom: e.target.value })}>
+                                            <option value="III">Kelas III</option>
+                                            <option value="II">Kelas II</option>
+                                            <option value="I">Kelas I</option>
+                                            <option value="VIP">VIP</option>
+                                        </select>
+                                    </div>
+                                )}
+                            </div>
+                            {patientFormData.paymentStatus === 'BPJS' && (
+                                <div className="space-y-1">
+                                    <label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Jenis Kepesertaan JKN</label>
+                                    <select className="w-full bg-white rounded-xl py-3 px-4 text-xs font-bold border border-slate-200 outline-none focus:border-pink-500" value={patientFormData.jknType} onChange={e => setPatientFormData({ ...patientFormData, jknType: e.target.value })}>
+                                        <option value="PBI (APBD)">PBI (APBD)</option>
+                                        <option value="PBI (APBN)">PBI (APBN)</option>
+                                        <option value="Mandiri">Mandiri</option>
+                                        <option value="PPU">PPU</option>
+                                        <option value="PBPU">PBPU</option>
+                                    </select>
+                                </div>
+                            )}
+                        </div>
+                      </div>
+
+                      {/* KOLOM 2: DATA OPERASI */}
+                      <div className="space-y-4">
+                        <h4 className="text-xs font-black text-pink-500 uppercase tracking-widest border-b border-pink-100 pb-2 mb-4">2. Data Operasi</h4>
+                        
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                                <label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Tanggal Operasi</label>
+                                <input type="date" className="w-full bg-white rounded-xl py-3 px-4 text-xs font-bold border border-slate-200 outline-none focus:border-pink-500" value={patientFormData.admissionDate} onChange={e => setPatientFormData({...patientFormData, admissionDate: e.target.value})} />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Dokter Operator (DPJP)</label>
+                                <input className="w-full bg-white rounded-xl py-3 px-4 text-xs font-bold border border-slate-200 outline-none focus:border-pink-500" placeholder="dr. Operator Sp." value={patientFormData.doctorDPJP} onChange={e => setPatientFormData({...patientFormData, doctorDPJP: e.target.value})} />
+                            </div>
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Spesialisasi</label>
+                            <select className="w-full bg-white rounded-xl py-3 px-4 text-xs font-bold border border-slate-200 outline-none focus:border-pink-500" value={patientFormData.specialization} onChange={e => setPatientFormData({ ...patientFormData, specialization: e.target.value })}>
+                                <option value="">-- Pilih Spesialisasi --</option>
+                                <option value="Obstetri dan Ginekologi">Obstetri dan Ginekologi</option>
+                                <option value="Bedah">Bedah Umum</option>
+                                <option value="Mata">Mata</option>
+                                <option value="THT">THT</option>
+                                <option value="Bedah Mulut">Bedah Mulut</option>
+                                <option value="Orthopedi">Orthopedi</option>
+                                <option value="Lainnya">Lainnya</option>
+                            </select>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                                <label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Jenis Operasi</label>
+                                <select className="w-full bg-white rounded-xl py-3 px-4 text-xs font-bold border border-slate-200 outline-none focus:border-pink-500" value={patientFormData.operationCategory} onChange={e => setPatientFormData({ ...patientFormData, operationCategory: e.target.value })}>
+                                    <option value="">-- Kategori --</option>
+                                    <option value="Besar">Besar</option>
+                                    <option value="Sedang">Sedang</option>
+                                    <option value="Kecil">Kecil</option>
+                                    <option value="Khusus">Khusus</option>
+                                </select>
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Tindakan Operasi</label>
+                                <select className="w-full bg-white rounded-xl py-3 px-4 text-xs font-bold border border-slate-200 outline-none focus:border-pink-500" value={patientFormData.operationStatus} onChange={e => setPatientFormData({ ...patientFormData, operationStatus: e.target.value })}>
+                                    <option value="">-- Sifat --</option>
+                                    <option value="Elektif">Elektif</option>
+                                    <option value="Cito">Cito</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="space-y-1">
+                             <label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Diagnosa Utama</label>
+                             <textarea rows="2" className="w-full bg-white rounded-xl py-3 px-4 text-xs font-bold border border-slate-200 outline-none focus:border-pink-500 resize-none" placeholder="Diagnosa Pre-Op" value={patientFormData.diagnosisPrimary} onChange={e => setPatientFormData({...patientFormData, diagnosisPrimary: e.target.value})} />
+                        </div>
+
+                        <div className="space-y-1">
+                             <label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Tindakan (ICD-9 CM)</label>
+                             <input className="w-full bg-white rounded-xl py-3 px-4 text-xs font-bold border border-slate-200 outline-none focus:border-pink-500" placeholder="Nama Tindakan" value={patientFormData.action} onChange={e => setPatientFormData({...patientFormData, action: e.target.value})} />
+                        </div>
+
+                        <div className="space-y-1">
+                             <label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Keterangan</label>
+                             <input className="w-full bg-white rounded-xl py-3 px-4 text-xs font-bold border border-slate-200 outline-none focus:border-pink-500" placeholder="Catatan tambahan" value={patientFormData.notes} onChange={e => setPatientFormData({...patientFormData, notes: e.target.value})} />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
                     /* FORMULIR KHUSUS RAWAT INAP (SELAIN IGD, OK, HD) */
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       <div className="space-y-4">
                         <h4 className="text-xs font-black text-indigo-500 uppercase tracking-widest border-b border-indigo-100 pb-2 mb-4">1. Identitas Pasien</h4>
                         
+                        {!patientFormData.room && (
+                            <div className="space-y-1 mb-4 bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+                                <label className="text-[9px] font-bold text-indigo-600 uppercase ml-1">Pilih Ruangan Terlebih Dahulu</label>
+                                <select 
+                                    className="w-full bg-white rounded-xl py-3 px-4 text-xs font-bold border border-indigo-200 outline-none focus:border-indigo-500 text-indigo-700"
+                                    value={patientFormData.room} 
+                                    onChange={e => setPatientFormData({ ...patientFormData, room: e.target.value })}
+                                >
+                                    <option value="">-- PILIH RUANGAN --</option>
+                                    {rooms.filter(r => !['IGD', 'IGD PONEK', 'OK (BEDAH SENTRAL)', 'HEMODIALISA'].includes(r.name)).map(r => (
+                                        <option key={r.id} value={r.name}>{r.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1">
                                 <label className="text-[9px] font-bold text-slate-500 uppercase ml-1">No. Rekam Medis</label>
@@ -2312,92 +2546,6 @@ const App = () => {
                            </div>
                         </div>
                       </div>
-                    </div>
-                  ) : (
-                    /* =====================================================
-                        LAYOUT STANDAR (Untuk OK & Hemodialisa)
-                        =====================================================
-                    */
-                    <div className="space-y-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <label className="text-[10px] font-black text-slate-600 uppercase tracking-widest ml-1">Nama Pasien</label>
-                          <input required className="w-full bg-white rounded-2xl py-4 px-5 outline-none border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all font-bold text-slate-800 placeholder:text-slate-300" value={patientFormData.name} onChange={e => setPatientFormData({...patientFormData, name: e.target.value})} placeholder="Nama Lengkap" />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-[10px] font-black text-slate-600 uppercase tracking-widest ml-1">Jenis Kelamin</label>
-                          <select className="w-full bg-white rounded-2xl py-4 px-5 outline-none border border-slate-200 font-bold text-slate-800 appearance-none cursor-pointer focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all" value={patientFormData.gender} onChange={e => setPatientFormData({ ...patientFormData, gender: e.target.value })}>
-                            <option value="Laki-Laki">Laki-Laki</option>
-                            <option value="Perempuan">Perempuan</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                          <label className="text-[10px] font-black text-slate-600 uppercase tracking-widest ml-1">Alamat Domisili</label>
-                          <textarea required rows="2" placeholder="Alamat Lengkap Pasien" className="w-full bg-white rounded-2xl py-4 px-5 outline-none border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all font-bold text-slate-800 resize-none placeholder:text-slate-300" value={patientFormData.address} onChange={e => setPatientFormData({...patientFormData, address: e.target.value})} />
-                      </div>
-                      <div className="grid grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                           <label className="text-[10px] font-black text-slate-600 uppercase tracking-widest ml-1">Usia (Thn)</label>
-                           <input required type="number" className="w-full bg-white rounded-2xl py-4 px-5 outline-none border border-slate-200 font-bold text-slate-800 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all" value={patientFormData.age} onChange={e => setPatientFormData({ ...patientFormData, age: e.target.value })} />
-                        </div>
-                        <div className="space-y-2">
-                           <label className="text-[10px] font-black text-indigo-600 uppercase tracking-widest ml-1">Ruangan</label>
-                           <input required disabled={!!loggedInRoomId} className="w-full bg-indigo-50 rounded-2xl py-4 px-5 outline-none border border-indigo-100 font-black text-indigo-600 cursor-not-allowed" value={patientFormData.room} onChange={e => setPatientFormData({ ...patientFormData, room: e.target.value })} />
-                        </div>
-                      </div>
-
-                      {/* KHUSUS OK: JENIS OPERASI */}
-                      {(patientFormData.room.toUpperCase().includes('OK') || patientFormData.room.toUpperCase().includes('BEDAH')) && (
-                        <div className="space-y-2 animate-in slide-in-from-top-4 fade-in">
-                          <label className="text-[10px] font-black text-pink-600 uppercase tracking-widest ml-1 flex items-center gap-1"><Syringe size={12}/> Jenis Operasi</label>
-                          <div className="relative">
-                            <select className="w-full bg-pink-50 rounded-2xl py-4 px-5 outline-none border border-pink-200 font-bold text-slate-800 appearance-none cursor-pointer focus:border-pink-500 focus:ring-4 focus:ring-pink-100 transition-all" value={patientFormData.jenisOperasi} onChange={e => setPatientFormData({ ...patientFormData, jenisOperasi: e.target.value })}>
-                              <option value="">-- Pilih Jenis Operasi --</option>
-                              <option value="Obgyn Elektif">1. Obgyn Elektif</option>
-                              <option value="Obgyn Cito">2. Obgyn Cito</option>
-                              <option value="Bedah Umum">3. Bedah Umum</option>
-                            </select>
-                            <ChevronRight className="absolute right-5 top-1/2 -translate-y-1/2 text-pink-400 rotate-90 pointer-events-none" size={16} />
-                          </div>
-                        </div>
-                      )}
-
-                      {/* TANGGAL MASUK & STATUS PASIEN */}
-                      <div className="grid grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                           <label className="text-[10px] font-black text-slate-600 uppercase tracking-widest ml-1">Tanggal Masuk</label>
-                           <input type="date" required className="w-full bg-white rounded-2xl py-4 px-5 outline-none border border-slate-200 font-bold text-slate-800 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all cursor-pointer" value={patientFormData.admissionDate} onChange={e => setPatientFormData({ ...patientFormData, admissionDate: e.target.value })} />
-                        </div>
-                        <div className="space-y-2">
-                           <label className="text-[10px] font-black text-slate-600 uppercase tracking-widest ml-1">Status Pasien</label>
-                           <select className="w-full bg-white rounded-2xl py-4 px-5 outline-none border border-slate-200 font-bold text-slate-800 appearance-none cursor-pointer focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all" value={patientFormData.paymentStatus} onChange={e => setPatientFormData({ ...patientFormData, paymentStatus: e.target.value })}>
-                             <option value="BPJS">BPJS</option>
-                             <option value="Umum">Umum</option>
-                             <option value="GR">GR</option>
-                           </select>
-                        </div>
-                      </div>
-
-                      {!patientFormData.room.toUpperCase().includes('OK') && (
-                        <div className="space-y-2">
-                           <label className="text-[10px] font-black text-slate-600 uppercase tracking-widest ml-1">Status Perawatan</label>
-                           <select className="w-full bg-white rounded-2xl py-4 px-5 outline-none border border-slate-200 font-bold text-slate-800 appearance-none cursor-pointer focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all" value={patientFormData.status} onChange={e => { const newStatus = e.target.value; setPatientFormData(prev => ({ ...prev, status: newStatus, outcomeDate: (newStatus !== 'Dirawat /Inap' && !prev.outcomeDate) ? new Date().toISOString().split('T')[0] : prev.outcomeDate })); }}>
-                             <option value="Dirawat /Inap">Dirawat /Inap</option>
-                             <option value="Pulang (BLPL)">Pulang (BLPL)</option>
-                             <option value="Pulang (APS)">Pulang (APS)</option>
-                             <option value="Di rujuk">Di rujuk</option>
-                             <option value="Meninggal Dunia">Meninggal Dunia</option>
-                           </select>
-                        </div>
-                      )}
-
-                      {patientFormData.status !== 'Dirawat /Inap' && (
-                        <div className="space-y-2 animate-in slide-in-from-top-4 fade-in">
-                          <label className="text-[10px] font-black text-slate-600 uppercase tracking-widest ml-1">Tanggal {patientFormData.status.includes('Meninggal') ? 'Meninggal' : 'Keluar'}</label>
-                          <input type="date" required className="w-full bg-white rounded-2xl py-4 px-5 outline-none border border-slate-200 font-bold text-slate-800 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all" value={patientFormData.outcomeDate} onChange={e => setPatientFormData({ ...patientFormData, outcomeDate: e.target.value })} />
-                        </div>
-                      )}
                     </div>
                   )}
                   <button type="submit" disabled={isSaving} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase shadow-xl flex items-center justify-center gap-3 mt-4 transition-all hover:bg-indigo-700 hover:shadow-2xl active:scale-95">

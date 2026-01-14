@@ -5,7 +5,8 @@ import {
   BarChart3, LayoutDashboard, ClipboardList, Edit3, Loader2, Baby, ShieldPlus,
   Stethoscope, Zap, Scissors, Droplets, KeyRound, AlertTriangle, ShieldCheck,
   Search, ShieldAlert, FileSpreadsheet, Download, Check, UserPlus, User, 
-  CreditCard, Clock, MapPin, CalendarDays, Syringe, FileText, Siren, BedDouble
+  CreditCard, Clock, MapPin, CalendarDays, Syringe, FileText, Siren, BedDouble,
+  Filter, CalendarRange
 } from 'lucide-react';
 
 // --- FIREBASE IMPORTS ---
@@ -38,9 +39,6 @@ const auth = getAuth(firebaseApp);
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'sipas-rsud-lebong-e6a43';
 
 // --- SECURITY UTILITY (ENCRYPTION) ---
-// Menggunakan XOR Cipher sederhana + Base64 encoding agar aman disimpan di DB
-// Data akan diawali dengan 'ENC:' untuk menandai data terenkripsi
-
 const toBase64 = (text) => {
   try {
     return btoa(encodeURIComponent(text).replace(/%([0-9A-F]{2})/g, (match, p1) => String.fromCharCode('0x' + p1)));
@@ -55,7 +53,6 @@ const fromBase64 = (str) => {
 
 const encrypt = (text, key) => {
   if (!text || !key) return text;
-  // Jangan enkripsi jika bukan string atau key kosong
   try {
     const textStr = String(text);
     let result = '';
@@ -73,7 +70,6 @@ const decrypt = (encoded, key) => {
   if (!encoded || !key) return encoded;
   try {
     const strEncoded = String(encoded);
-    // Backward compatibility: Jika tidak ada prefix ENC:, berarti data lama (plain text)
     if (!strEncoded.startsWith('ENC:')) return strEncoded;
 
     const raw = fromBase64(strEncoded.substring(4));
@@ -153,11 +149,9 @@ const formatReportText = (data, rooms) => {
   const dateStr = formatDateID(data.date);
   let text = `*LAPORAN PASIEN RSUD LEBONG*\nTgl: ${dateStr}\n\n`;
 
-  // Transaksi Harian
   text += `*UNIT IGD (Kunjungan)*\nPagi : ${data.igdPagi || 0}\nSore : ${data.igdSore || 0}\nMalam : ${data.igdMalam || 0}\n`;
   text += `PONEK Pagi : ${data.igdPonekPagi || 0}\nPONEK Sore : ${data.igdPonekSore || 0}\nPONEK Malam : ${data.igdPonekMalam || 0}\n\n`;
 
-  // Data Ruangan
   const totalRawat = rooms.reduce((acc, r) => acc + Number(data[r.pasienKey] || 0), 0);
   rooms.forEach(room => {
     text += `*${room.name}*\nTT : ${data[room.ttKey] || room.defaultTT}\nPasien : ${data[room.pasienKey] || 0}\nBPJS : ${data[room.bpjsKey] || 0}\nUmum : ${data[room.umumKey] || 0}\n\n`;
@@ -165,7 +159,6 @@ const formatReportText = (data, rooms) => {
 
   text += `*Total Pasien Terdata:* ${totalRawat}\n\n`;
 
-  // Rincian Kegiatan OK & HD
   text += `*KEGIATAN OK (Rincian)*\n_Obgyn_\nElektif: ${data.okObgynElektif || 0}\nCito: ${data.okObgynCito || 0}\n`;
   text += `_Bedah_\nElektif: ${data.okBedahElektif || 0}\nCito: ${data.okBedahCito || 0}\n\n`;
   text += `*KEGIATAN HD (Rincian)*\nPagi: ${data.hdPagi || 0}\nSiang: ${data.hdSiang || 0}\nCito: ${data.hdCito || 0}`;
@@ -178,7 +171,7 @@ const animationStyles = `
   .scrollbar-hide::-webkit-scrollbar { display: none; }
   .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
   .glass-sidebar {
-    background: transparent; /* Makes sidebar background same as main (transparent) */
+    background: transparent;
     backdrop-filter: blur(15px);
     border-right: 1px solid rgba(255, 255, 255, 0.2);
   }
@@ -189,7 +182,6 @@ const animationStyles = `
   .checkbox-wrapper input:checked + div { background-color: #10b981; border-color: #10b981; }
   .checkbox-wrapper input:checked + div svg { display: block; }
   
-  /* --- BACKGROUND ANIMATION --- */
   @keyframes gradientBG { 
       0% { background-position: 0% 50%; } 
       50% { background-position: 100% 50%; } 
@@ -199,28 +191,16 @@ const animationStyles = `
       background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
       background-size: 400% 400%;
       animation: gradientBG 15s ease infinite;
-      min-height: 100vh; /* Ensures background fills screen */
+      min-height: 100vh; 
       width: 100%;
   }
 
-  /* --- ALERT GLOW ANIMATION --- */
   @keyframes alertGlow {
-    0% {
-      box-shadow: 0 0 5px rgba(244, 63, 94, 0.3);
-      border-color: rgba(251, 113, 133, 0.6);
-    }
-    50% {
-      box-shadow: 0 0 25px rgba(244, 63, 94, 0.8), 0 0 10px rgba(244, 63, 94, 0.4) inset;
-      border-color: rgba(225, 29, 72, 1);
-    }
-    100% {
-      box-shadow: 0 0 5px rgba(244, 63, 94, 0.3);
-      border-color: rgba(251, 113, 133, 0.6);
-    }
+    0% { box-shadow: 0 0 5px rgba(244, 63, 94, 0.3); border-color: rgba(251, 113, 133, 0.6); }
+    50% { box-shadow: 0 0 25px rgba(244, 63, 94, 0.8), 0 0 10px rgba(244, 63, 94, 0.4) inset; border-color: rgba(225, 29, 72, 1); }
+    100% { box-shadow: 0 0 5px rgba(244, 63, 94, 0.3); border-color: rgba(251, 113, 133, 0.6); }
   }
-  .alert-card-glow {
-    animation: alertGlow 1.5s infinite ease-in-out;
-  }
+  .alert-card-glow { animation: alertGlow 1.5s infinite ease-in-out; }
 `;
 
 // --- CONSTANTS ---
@@ -260,7 +240,6 @@ const defaultRoomsList = [
 // ==========================================
 
 const GlassContainer = ({ children, className = "" }) => (
-  // Adjusted bg-white/90 to bg-white/75 to show background
   <div className={`bg-white/75 backdrop-blur-md border border-white/50 shadow-xl ${className}`}>
     {children}
   </div>
@@ -347,7 +326,6 @@ const RoomCard = React.memo(({ room, report, onChange, onSave, isAdmin, onDelete
     <div className={`${room.cardGradient} rounded-[2.5rem] p-6 shadow-xl relative overflow-hidden transition-all hover:shadow-2xl hover:-translate-y-1 h-full flex flex-col justify-between border border-white/20 group`}>
       <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
       
-      {/* Header */}
       <div className="flex justify-between items-center mb-6 relative z-10 text-slate-800">
         <div className="flex items-center space-x-4 w-full">
           <div className="p-3 bg-white/40 rounded-2xl backdrop-blur-md shadow-inner shrink-0"><Icon size={22} className="text-slate-800" /></div>
@@ -385,7 +363,6 @@ const RoomCard = React.memo(({ room, report, onChange, onSave, isAdmin, onDelete
         {isAdmin && <button onClick={() => onDeleteRoom(room.id)} className="p-2.5 bg-white/30 text-slate-700 rounded-xl hover:bg-rose-500/80 hover:text-white transition-colors backdrop-blur-sm shrink-0 ml-2"><Trash2 size={16} /></button>}
       </div>
 
-      {/* Inputs */}
       <div className="grid grid-cols-4 gap-2 bg-white/30 p-3 rounded-[2rem] backdrop-blur-sm relative z-10 border border-white/20">
         <NumberInput label="TT" value={report[room.ttKey] || room.defaultTT} onChange={(val) => onChange(room.ttKey, val)} onBlur={onSave} bgClass="bg-white/50" textColor="text-slate-800" />
         <NumberInput label="PASIEN" value={report[room.pasienKey]} onChange={(val) => onChange(room.pasienKey, val)} bgClass="bg-white/60" disabled={true} textColor="text-slate-800" />
@@ -417,15 +394,13 @@ const App = () => {
   const [loggedInRoomId, setLoggedInRoomId] = useState(null);
   const [adminSelectedRoomId, setAdminSelectedRoomId] = useState('');
 
-  // LOGIN FORM STATE
-  const [showLoginModal, setShowLoginModal] = useState(false);
-  const [loginUsername, setLoginUsername] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-  const loginPassRef = useRef(null);
-
   // --- STATE: SETTINGS & EDITS ---
   const [isSaving, setIsSaving] = useState(false);
   const [downloadRoomFilter, setDownloadRoomFilter] = useState('');
+  const [downloadSettings, setDownloadSettings] = useState({
+    month: new Date().toISOString().slice(0, 7), // YYYY-MM
+    mode: 'mtd' // 'full' (Satu Bulan) | 'mtd' (Real Time/Hari Ini)
+  });
   const [roomNameEdits, setRoomNameEdits] = useState({});
   const [newRoomData, setNewRoomData] = useState({ name: '', id: '', hasUmum: true });
   const [authSettings, setAuthSettings] = useState({
@@ -436,6 +411,12 @@ const App = () => {
   const [editingId, setEditingId] = useState(null);
   const [editFormData, setEditFormData] = useState(null);
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, type: '', id: '', message: '', title: '' });
+
+  // LOGIN FORM STATE
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginUsername, setLoginUsername] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const loginPassRef = useRef(null);
 
   // --- STATE: PATIENTS & ENCRYPTION ---
   const [patients, setPatients] = useState([]);
@@ -463,7 +444,7 @@ const App = () => {
     isDeadInIGD: false, isDOA: false, isInjury: false, isFalseEmergency: false,
     classRoom: 'III', jknType: 'PBI (APBD)', doctorKonsul: '',
     tariff: '', icd10Code: '', action: '', hp: '', notes: '',
-    specialization: '', operationCategory: '', operationStatus: '' // NEW FIELDS FOR OK
+    specialization: '', operationCategory: '', operationStatus: '' 
   });
 
   const showToast = (msg, type = 'success') => setToast({ message: msg, type });
@@ -472,7 +453,6 @@ const App = () => {
   // 4. EFFECTS & SUBSCRIPTIONS
   // ==========================================
 
-  // 1. INIT & AUTHENTICATION
   useEffect(() => {
     const initAuth = async () => {
       setDbStatus('connecting');
@@ -493,26 +473,22 @@ const App = () => {
     });
   }, []);
 
-  // 2. AUTO-LOCK TIMER (5 Menit)
   useEffect(() => {
     let timer;
     if (!isPatientLocked) {
-      // Jika enkripsi terbuka, mulai timer 5 menit
       timer = setTimeout(() => {
         setIsPatientLocked(true);
         setPatientMasterKey('');
         sessionStorage.removeItem('rs_session_key');
         showToast("Sesi akses nama habis (Otomatis Terkunci)", "error");
-      }, 5 * 60 * 1000); // 5 Menit dalam milidetik
+      }, 5 * 60 * 1000); 
     }
-    return () => clearTimeout(timer); // Bersihkan timer jika komponen unmount atau status berubah
+    return () => clearTimeout(timer);
   }, [isPatientLocked]);
 
-  // 3. DATA SUBSCRIPTIONS (Firestore Listeners)
   useEffect(() => {
     if (!user) return;
 
-    // -- SETTINGS SUBSCRIPTION --
     const unsubAuth = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'auth'), (snap) => {
       if (snap.exists()) {
         const data = snap.data();
@@ -530,7 +506,6 @@ const App = () => {
       }
     });
 
-    // -- ROOMS SUBSCRIPTION --
     const unsubRooms = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'rooms'), (snap) => {
       const dbRoomsMap = new Map();
       snap.docs.forEach(d => dbRoomsMap.set(d.id, { id: d.id, ...d.data() }));
@@ -552,7 +527,6 @@ const App = () => {
       setRoomNameEdits(initialEdits);
     });
 
-    // -- REPORTS SUBSCRIPTION --
     const unsubReports = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'reports'), (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       const sorted = data.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
@@ -564,12 +538,10 @@ const App = () => {
       else setReport({ ...initialReportData, date: currentReportingDate });
     });
 
-    // -- PATIENTS SUBSCRIPTION (WITH DECRYPTION) --
     const unsubPatients = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'patients'), (snapshot) => {
       const decryptedData = snapshot.docs.map(doc => {
         const data = doc.data();
         
-        // Decrypt sensitive fields
         const realName = decrypt(data.name, patientMasterKey);
         const realAddress = decrypt(data.address, patientMasterKey);
         const realAge = decrypt(data.age, patientMasterKey);
@@ -578,13 +550,11 @@ const App = () => {
         const realPayment = data.paymentStatus;
         const realJenisOperasi = data.jenisOperasi || ''; 
 
-        // New fields decryption (if encrypted in future, currently simple fields)
         const realSpecialization = data.specialization || '';
         const realOperationCategory = data.operationCategory || '';
         const realOperationStatus = data.operationStatus || '';
 
         if (isPatientLocked) {
-          // Jika terkunci, tampilkan mask (••••) tapi pertahankan statistik room/payment
           return {
             id: doc.id, ...data,
             name: '••••', age: '••', room: realRoom, address: '••••',
@@ -595,7 +565,6 @@ const App = () => {
           };
         }
 
-        // Jika terbuka, gunakan hasil dekripsi
         return {
           id: doc.id, ...data,
           name: realName, age: realAge, room: realRoom, address: realAddress,
@@ -612,7 +581,6 @@ const App = () => {
     return () => { unsubAuth(); unsubRooms(); unsubReports(); unsubPatients(); };
   }, [user, patientMasterKey, isPatientLocked]);
 
-  // 3. AUTO-CALCULATE REPORT STATS
   const calculatedStats = useMemo(() => {
     const stats = {};
     rooms.forEach(r => {
@@ -624,7 +592,6 @@ const App = () => {
 
     const okPatients = patients.filter(p => p.room && (p.room.includes('OK') || p.room.includes('BEDAH SENTRAL')));
     if (okPatients.length > 0) {
-        // OLD LOGIC BACKWARD COMPATIBILITY + NEW LOGIC
         stats.okObgynElektif = okPatients.filter(p => (p.jenisOperasi === 'Obgyn Elektif') || (p.specialization === 'Obstetri dan Ginekologi' && p.operationStatus === 'Elektif')).length;
         stats.okObgynCito = okPatients.filter(p => (p.jenisOperasi === 'Obgyn Cito') || (p.specialization === 'Obstetri dan Ginekologi' && p.operationStatus === 'Cito')).length;
         stats.okBedahElektif = okPatients.filter(p => (p.jenisOperasi === 'Bedah Umum') || (p.specialization === 'Bedah' && p.operationStatus === 'Elektif')).length;
@@ -688,6 +655,36 @@ const App = () => {
     return data;
   }, [patients, isStaffLoggedIn, loggedInRoomId, isAdmin, downloadRoomFilter, rooms]);
 
+  const filteredDownloadData = useMemo(() => {
+    if (!patientsToDownload || patientsToDownload.length === 0) return [];
+    
+    const targetDate = new Date(downloadSettings.month);
+    const targetYear = targetDate.getFullYear();
+    const targetMonth = targetDate.getMonth();
+    
+    return patientsToDownload.filter(p => {
+        if (!p.admissionDate) return false;
+        const pDate = new Date(p.admissionDate);
+        
+        // Filter by Month & Year of selected month
+        const sameMonth = pDate.getMonth() === targetMonth && pDate.getFullYear() === targetYear;
+        if (!sameMonth) return false;
+
+        // "MTD" (Real time) Filter: Up to Today
+        if (downloadSettings.mode === 'mtd') {
+            const today = new Date();
+            // If the selected month is the current month, restrict to <= now
+            // If selected month is past, this check is always true (since past dates < today)
+            // If selected month is future, this check is false.
+            // This logic works for "Real Time" in current context.
+            return pDate <= today;
+        }
+        
+        // "Full" mode: Just the month check is enough (which is done by sameMonth)
+        return true;
+    });
+  }, [patientsToDownload, downloadSettings]);
+
   // ==========================================
   // 6. EVENT HANDLERS
   // ==========================================
@@ -710,7 +707,7 @@ const App = () => {
       isDeadInIGD: false, isDOA: false, isInjury: false, isFalseEmergency: false,
       classRoom: 'III', jknType: 'PBI (APBD)', doctorKonsul: '',
       tariff: '', icd10Code: '', action: '', hp: '', notes: '',
-      specialization: '', operationCategory: '', operationStatus: '' // NEW FIELDS FOR OK
+      specialization: '', operationCategory: '', operationStatus: '' 
     });
     setIsPatientModalOpen(true);
   };
@@ -834,7 +831,6 @@ const App = () => {
     if (confirmModal.type === 'save_patient') {
       setIsSaving(true);
       
-      // ENCRYPTION APPLIED HERE
       const payload = {
         name: encrypt(patientFormData.name, patientMasterKey),
         age: encrypt(patientFormData.age, patientMasterKey),
@@ -848,7 +844,6 @@ const App = () => {
         outcomeDate: patientFormData.outcomeDate || '',
         jenisOperasi: patientFormData.jenisOperasi || '', 
         
-        // Extended Fields
         mrn: patientFormData.mrn || '',
         nik: patientFormData.nik || '',
         birthDate: patientFormData.birthDate || '',
@@ -877,7 +872,6 @@ const App = () => {
         hp: patientFormData.hp || '',
         notes: patientFormData.notes || '',
 
-        // NEW FIELDS FOR OK (Laporan OK.xlsx)
         specialization: patientFormData.specialization || '',
         operationCategory: patientFormData.operationCategory || '',
         operationStatus: patientFormData.operationStatus || '',
@@ -964,10 +958,10 @@ const App = () => {
 
   // --- EXCEL EXPORT ---
   const handleDownloadExcel = () => {
+    const dateObj = new Date(downloadSettings.month);
     const monthNames = ["JANUARI", "FEBRUARI", "MARET", "APRIL", "MEI", "JUNI", "JULI", "AGUSTUS", "SEPTEMBER", "OKTOBER", "NOVEMBER", "DESEMBER"];
-    const now = new Date();
-    const currentMonth = monthNames[now.getMonth()];
-    const currentYear = now.getFullYear();
+    const currentMonth = monthNames[dateObj.getMonth()];
+    const currentYear = dateObj.getFullYear();
 
     let roomNameDisplay = "ALL";
     if (isStaffLoggedIn && loggedInRoomId) {
@@ -975,6 +969,9 @@ const App = () => {
     } else if (isAdmin && downloadRoomFilter) {
       roomNameDisplay = rooms.find(r => r.id === downloadRoomFilter)?.name.toUpperCase() || "RUANGAN";
     }
+
+    // Report Type Label
+    const reportTypeLabel = downloadSettings.mode === 'mtd' ? 'REKAPAN AWAL BULAN S/D HARI INI (REAL TIME)' : 'REKAPAN SATU BULAN PENUH';
 
     let tableRows = "";
     let tableHeader = "";
@@ -993,6 +990,9 @@ const App = () => {
     const isHD = roomNameDisplay.includes('HEMODIALISA');
     const isInpatient = !isIGD && !isOK && !isHD; 
 
+    // Use filteredDownloadData which already filters by date
+    const dataToExport = filteredDownloadData;
+
     if (isIGD) {
         tableHeader = `
           <tr>
@@ -1004,7 +1004,7 @@ const App = () => {
             <th style="${thStyle}">Mati di IGD</th><th style="${thStyle}">DOA (Death On Arrive)</th><th style="${thStyle}">Luka-Luka</th><th style="${thStyle}">False Emergency</th>
           </tr>`;
 
-        patientsToDownload.forEach((p, index) => {
+        dataToExport.forEach((p, index) => {
             const admissionDate = p.admissionDate ? formatDateID(p.admissionDate) : '';
             const birthDate = p.birthDate ? formatDateID(p.birthDate) : '';
             tableRows += `
@@ -1022,7 +1022,6 @@ const App = () => {
               </tr>`;
         });
     } else if (isOK) {
-        // --- LAYOUT LAPORAN KAMAR OPERASI (SESUAI EXCEL) ---
         tableHeader = `
           <tr>
             <th style="${thStyle}">No</th><th style="${thStyle}">Nomor RM</th><th style="${thStyle}">Nama Pasien</th><th style="${thStyle}">Nomor NIK / BPJS</th>
@@ -1033,10 +1032,9 @@ const App = () => {
             <th style="${thStyle}">Diagnosa Utama</th><th style="${thStyle}">Tindakan</th><th style="${thStyle}">Keterangan</th>
           </tr>`;
         
-        patientsToDownload.forEach((p, index) => {
-            const admissionDate = p.admissionDate ? formatDateID(p.admissionDate) : ''; // Use Admission Date as Tanggal Operasi
+        dataToExport.forEach((p, index) => {
+            const admissionDate = p.admissionDate ? formatDateID(p.admissionDate) : ''; 
             const birthDate = p.birthDate ? formatDateID(p.birthDate) : '';
-            // Construct Jenis Pembayaran like "BPJS Kelas III"
             let jenisBayarFull = p.paymentStatus;
             if (p.paymentStatus === 'BPJS' && p.classRoom) jenisBayarFull += ` Kelas ${p.classRoom}`;
 
@@ -1063,7 +1061,7 @@ const App = () => {
             <th style="${thStyle}">Kelas</th><th style="${thStyle}">HP (Hari Perawatan)</th><th style="${thStyle}">Keterangan Keluar</th><th style="${thStyle}">Keterangan</th>
           </tr>`;
         
-        patientsToDownload.forEach((p, index) => {
+        dataToExport.forEach((p, index) => {
             const admissionDate = p.admissionDate ? formatDateID(p.admissionDate) : '';
             const outcomeDate = p.outcomeDate ? formatDateID(p.outcomeDate) : '';
             const birthDate = p.birthDate ? formatDateID(p.birthDate) : '';
@@ -1096,7 +1094,7 @@ const App = () => {
             <th style="${thStyle}">Umur</th><th style="${thStyle}">Alamat</th><th style="${thStyle}">Tanggal Masuk</th><th style="${thStyle}">Status</th>
             <th style="${thStyle}">Jenis Operasi</th>
           </tr>`;
-        patientsToDownload.forEach((p, index) => {
+        dataToExport.forEach((p, index) => {
              tableRows += `<tr><td style="${centerStyle}">${index + 1}</td><td style="${textStyle}"> </td><td style="${borderStyle}">${p.name}</td><td style="${borderStyle}">${p.gender}</td><td style="${centerStyle}">${p.age}</td><td style="${borderStyle}">${p.address}</td><td style="${centerStyle}">${p.admissionDate}</td><td style="${borderStyle}">${p.status}</td><td style="${borderStyle}">${p.jenisOperasi || '-'}</td></tr>`;
         });
     }
@@ -1110,6 +1108,7 @@ const App = () => {
             <tr><td colspan="2" style="${metaLabelStyle}">Ruangan :</td><td colspan="5" style="${metaValueStyle}">${roomNameDisplay}</td></tr>
             <tr><td colspan="2" style="${metaLabelStyle}">Bulan :</td><td colspan="5" style="${metaValueStyle}">${currentMonth}</td></tr>
             <tr><td colspan="2" style="${metaLabelStyle}">Tahun :</td><td colspan="5" style="${metaValueStyle}">${currentYear}</td></tr>
+            <tr><td colspan="2" style="${metaLabelStyle}">Jenis Laporan :</td><td colspan="5" style="${metaValueStyle}">${reportTypeLabel}</td></tr>
             <tr></tr>
             <tr><td colspan="20" style="${metaLabelStyle} font-size: 14pt; text-decoration: underline;">LAPORAN ${roomNameDisplay} BULAN ${currentMonth} TAHUN ${currentYear}</td></tr>
             <tr></tr>
@@ -1330,7 +1329,6 @@ const App = () => {
   }
 
   if (isStaffLoggedIn || isAdmin) {
-    // REMOVED 'Salin Teks' TAB HERE
     navItems.push({ id: 'download', label: 'Laporan', icon: FileSpreadsheet, activeIconBg: 'bg-emerald-600' });
   }
 
@@ -1642,36 +1640,94 @@ const App = () => {
               {activeTab === 'download' && (
                 <div className="h-full flex flex-col gap-6 pb-20">
                   <GlassContainer className="p-8 rounded-[2.5rem] flex flex-col gap-6 h-full overflow-hidden">
-                    <div className="flex flex-col md:flex-row justify-between items-end gap-4 border-b border-slate-200 pb-6">
-                      <div>
-                        <h2 className="text-2xl font-black text-slate-800 flex items-center gap-3">
-                          <FileSpreadsheet className="text-blue-600" />
-                          Export Data
-                        </h2>
-                        <p className="text-slate-500 text-sm mt-1">Pratinjau dan unduh data laporan pasien.</p>
+                    <div className="flex flex-col gap-6 border-b border-slate-200 pb-6">
+                      <div className="flex flex-col md:flex-row justify-between items-end gap-4">
+                        <div>
+                          <h2 className="text-2xl font-black text-slate-800 flex items-center gap-3">
+                            <FileSpreadsheet className="text-blue-600" />
+                            Export Data
+                          </h2>
+                          <p className="text-slate-500 text-sm mt-1">Pratinjau dan unduh data laporan pasien.</p>
+                        </div>
+
+                        <div className="flex items-center gap-4">
+                          {isAdmin && (
+                            <div className="relative">
+                              <select
+                                className="appearance-none bg-slate-100 border border-slate-200 text-slate-700 py-3 pl-4 pr-10 rounded-xl font-bold text-xs focus:ring-2 focus:ring-blue-500 outline-none uppercase"
+                                value={downloadRoomFilter}
+                                onChange={(e) => setDownloadRoomFilter(e.target.value)}
+                              >
+                                <option value="">-- SEMUA RUANGAN --</option>
+                                {rooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                              </select>
+                              <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" size={14} />
+                            </div>
+                          )}
+
+                          <button
+                            onClick={handleDownloadExcel}
+                            className="bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold text-xs shadow-lg shadow-emerald-500/30 hover:bg-emerald-700 transition-all flex items-center gap-2"
+                          >
+                            <Download size={16} /> DOWNLOAD EXCEL
+                          </button>
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-4">
-                        {isAdmin && (
-                          <div className="relative">
-                            <select
-                              className="appearance-none bg-slate-100 border border-slate-200 text-slate-700 py-3 pl-4 pr-10 rounded-xl font-bold text-xs focus:ring-2 focus:ring-blue-500 outline-none"
-                              value={downloadRoomFilter}
-                              onChange={(e) => setDownloadRoomFilter(e.target.value)}
-                            >
-                              <option value="">-- SEMUA RUANGAN --</option>
-                              {rooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                            </select>
-                            <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" size={14} />
+                      {/* --- FILTER CONTROL BAR --- */}
+                      <div className="bg-slate-50 p-4 rounded-2xl flex flex-col md:flex-row gap-4 items-center border border-slate-200">
+                          <div className="flex items-center gap-2 w-full md:w-auto">
+                              <div className="bg-white p-2 rounded-xl border border-slate-200 text-slate-400">
+                                  <CalendarRange size={18} />
+                              </div>
+                              <div className="flex flex-col">
+                                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Bulan Laporan</span>
+                                  <input 
+                                      type="month" 
+                                      className="bg-transparent font-bold text-slate-700 text-sm outline-none w-full"
+                                      value={downloadSettings.month}
+                                      onChange={(e) => setDownloadSettings({...downloadSettings, month: e.target.value})}
+                                  />
+                              </div>
                           </div>
-                        )}
 
-                        <button
-                          onClick={handleDownloadExcel}
-                          className="bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold text-xs shadow-lg shadow-emerald-500/30 hover:bg-emerald-700 transition-all flex items-center gap-2"
-                        >
-                          <Download size={16} /> DOWNLOAD EXCEL
-                        </button>
+                          <div className="h-8 w-px bg-slate-200 hidden md:block"></div>
+
+                          <div className="flex flex-col md:flex-row gap-2 w-full">
+                              <label className={`flex-1 p-3 rounded-xl border-2 cursor-pointer transition-all flex items-center gap-3 ${downloadSettings.mode === 'mtd' ? 'border-emerald-500 bg-emerald-50' : 'border-transparent bg-white hover:bg-slate-100'}`}>
+                                  <input 
+                                      type="radio" 
+                                      name="downloadMode" 
+                                      className="hidden" 
+                                      checked={downloadSettings.mode === 'mtd'} 
+                                      onChange={() => setDownloadSettings({...downloadSettings, mode: 'mtd'})} 
+                                  />
+                                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${downloadSettings.mode === 'mtd' ? 'border-emerald-500' : 'border-slate-300'}`}>
+                                      {downloadSettings.mode === 'mtd' && <div className="w-2 h-2 bg-emerald-500 rounded-full" />}
+                                  </div>
+                                  <div className="flex flex-col">
+                                      <span className={`text-xs font-black uppercase ${downloadSettings.mode === 'mtd' ? 'text-emerald-700' : 'text-slate-600'}`}>Rekapan Awal Bulan s/d Hari Ini</span>
+                                      <span className="text-[9px] font-bold text-slate-400">Data Real Time (s/d {new Date().getDate()} {new Date().toLocaleString('id-ID', { month: 'short' })})</span>
+                                  </div>
+                              </label>
+
+                              <label className={`flex-1 p-3 rounded-xl border-2 cursor-pointer transition-all flex items-center gap-3 ${downloadSettings.mode === 'full' ? 'border-indigo-500 bg-indigo-50' : 'border-transparent bg-white hover:bg-slate-100'}`}>
+                                  <input 
+                                      type="radio" 
+                                      name="downloadMode" 
+                                      className="hidden" 
+                                      checked={downloadSettings.mode === 'full'} 
+                                      onChange={() => setDownloadSettings({...downloadSettings, mode: 'full'})} 
+                                  />
+                                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${downloadSettings.mode === 'full' ? 'border-indigo-500' : 'border-slate-300'}`}>
+                                      {downloadSettings.mode === 'full' && <div className="w-2 h-2 bg-indigo-500 rounded-full" />}
+                                  </div>
+                                  <div className="flex flex-col">
+                                      <span className={`text-xs font-black uppercase ${downloadSettings.mode === 'full' ? 'text-indigo-700' : 'text-slate-600'}`}>Rekapan Satu Bulan Penuh</span>
+                                      <span className="text-[9px] font-bold text-slate-400">Semua Data di Bulan Terpilih</span>
+                                  </div>
+                              </label>
+                          </div>
                       </div>
                     </div>
 
@@ -1692,8 +1748,8 @@ const App = () => {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                          {patientsToDownload.length > 0 ? (
-                            patientsToDownload.map((p, i) => (
+                          {filteredDownloadData.length > 0 ? (
+                            filteredDownloadData.map((p, i) => (
                               <tr key={p.id} className="hover:bg-indigo-50/50 transition-colors group">
                                 <td className="p-4 font-bold text-slate-500 text-center border-r border-slate-100">{i + 1}</td>
                                 <td className="p-4 border-r border-slate-100 whitespace-nowrap">{p.room}</td>
@@ -1727,14 +1783,14 @@ const App = () => {
                             ))
                           ) : (
                             <tr>
-                              <td colSpan="10" className="p-10 text-center text-slate-400 font-bold">Tidak ada data untuk filter ini.</td>
+                              <td colSpan="10" className="p-10 text-center text-slate-400 font-bold">Tidak ada data untuk filter bulan/jenis rekapan ini.</td>
                             </tr>
                           )}
                         </tbody>
                       </table>
                     </div>
                     <div className="text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                      Total Data: {patientsToDownload.length} Pasien
+                      Total Data Terfilter: {filteredDownloadData.length} Pasien
                     </div>
                   </GlassContainer>
                 </div>
@@ -1759,7 +1815,6 @@ const App = () => {
                         <div className="flex items-center gap-3">
                           <button onClick={() => { setEditFormData(item); setEditingId(item.id); }} className="p-3 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-600 hover:text-white transition-all shadow-sm"><Edit3 size={20} /></button>
                           <button onClick={() => setConfirmModal({ isOpen: true, type: 'report', id: item.id, message: 'Hapus data laporan ini secara permanen?' })} className="p-3 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-600 hover:text-white transition-all shadow-sm"><Trash2 size={20} /></button>
-                          {/* REMOVED COPY BUTTON HERE */}
                         </div>
                       </GlassContainer>
                     ))}
@@ -1991,10 +2046,6 @@ const App = () => {
               <div className="overflow-y-auto p-8 scrollbar-hide flex-1">
                 <form onSubmit={handlePatientSubmit} className="space-y-6">
 
-                  {/* =====================================================
-                      LAYOUT KHUSUS UNTUK IGD & PONEK
-                      =====================================================
-                  */}
                   {['IGD', 'IGD PONEK'].includes(patientFormData.room) ? (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                           {/* KOLOM KIRI: IDENTITAS & MEDIS */}
@@ -2170,10 +2221,6 @@ const App = () => {
                           </div>
                       </div>
                   ) : ['OK (BEDAH SENTRAL)', 'KAMAR OPERASI'].some(r => patientFormData.room.toUpperCase().includes(r)) ? (
-                    /* =====================================================
-                        LAYOUT KHUSUS KAMAR OPERASI (SESUAI LAPORAN OK.XLSX)
-                        =====================================================
-                    */
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       {/* KOLOM 1: IDENTITAS */}
                       <div className="space-y-4">
@@ -2350,7 +2397,6 @@ const App = () => {
                       </div>
                     </div>
                   ) : (
-                    /* FORMULIR KHUSUS RAWAT INAP (SELAIN IGD, OK, HD) */
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       <div className="space-y-4">
                         <h4 className="text-xs font-black text-indigo-500 uppercase tracking-widest border-b border-indigo-100 pb-2 mb-4">1. Identitas Pasien</h4>
@@ -2487,7 +2533,7 @@ const App = () => {
                         <div className="grid grid-cols-2 gap-4">
                            <div className="space-y-1">
                                 <label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Kode ICD-10</label>
-                                <input className="w-full bg-white rounded-xl py-3 px-4 text-xs font-bold border border-slate-200 outline-none focus:border-indigo-500" placeholder="Kode ICD" value={patientFormData.icd10Code} onChange={e => setPatientFormData({...patientFormData, icd10Code: e.target.value})} />
+                                <input className="w-full bg-white rounded-xl py-3 px-4 text-xs font-bold border border-slate-200 outline-none focus:border-indigo-500" placeholder="Kode ICD" value={patientFormData.icd10Code} onChange={e => setPatientFormData({...patientFormData,icd10Code: e.target.value})} />
                            </div>
                            <div className="space-y-1">
                                 <label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Tarif (Rp)</label>

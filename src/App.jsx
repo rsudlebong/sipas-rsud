@@ -5,7 +5,7 @@
  * * Deskripsi:
  * Aplikasi ini digunakan untuk manajemen pelaporan harian pasien, 
  * pendaftaran pasien baru, pencarian data pasien, dan ekspor laporan ke Excel.
- * * Versi: 2.5 (Fixed Public Dashboard Stats & IGD Observasi Recap)
+ * * Versi: 2.5 (Fixed Public Dashboard Stats & Removed Stray Character)
  * ============================================================================
  */
 
@@ -595,7 +595,7 @@ const App = () => {
     doctorIGD: '', doctorIntern: '', doctorDPJP: '',
     diagnosisPrimary: '', diagnosisSecondary: '',
     entryStatus: 'Non Rujukan', serviceType: 'Non Bedah Lainnya',
-    followUp: 'Pindah Ruangan', exitNote: '',
+    followUp: 'Observasi', exitNote: '',
     isDeadInIGD: false, isDOA: false, isInjury: false, isFalseEmergency: false,
     classRoom: 'III', jknType: 'PBI (APBD)', doctorKonsul: '',
     tariff: '', icd10Code: '', action: '', hp: '', notes: '',
@@ -943,7 +943,7 @@ const App = () => {
   // Ruangan & Pengaturan
   const handleUpdateRoomName = useCallback(async (roomId, newName) => {
     if (!user) {
-      showToast("Gagal: Anda belum login atau koneksi terputus.", "error");
+      showToast("Tidak ada koneksi atau sesi habis.", "error");
       return;
     }
     if (!newName || !newName.trim()) {
@@ -1102,7 +1102,6 @@ const App = () => {
       setIsSaving(true);
       
       // KOLOM RAW: Disimpan tanpa enkripsi untuk keperluan statistik dashboard
-      // (Aman karena hanya berupa kategori, bukan identitas personal)
       const payload = {
         name: encrypt(patientFormData.name, patientMasterKey),
         age: encrypt(patientFormData.age, patientMasterKey),
@@ -1621,7 +1620,7 @@ const App = () => {
                       <span className="text-[8px] uppercase tracking-wider opacity-70">UMUM</span>
                       <span className="text-amber-600 text-sm font-black">{Number(finalReport[r.umumKey] || 0)}</span>
                     </div>
-                  </div>9
+                  </div>
                   {!isPoli && (
                     <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden w-full">
                       <div 

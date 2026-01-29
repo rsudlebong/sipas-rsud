@@ -5,7 +5,7 @@
  * * Deskripsi:
  * Aplikasi ini digunakan untuk manajemen pelaporan harian pasien, 
  * pendaftaran pasien baru, pencarian data pasien, dan ekspor laporan ke Excel.
- * * Versi: 2.4 (Fixed ENC Text Leakage in Search Table)
+ * * Versi: 2.5 (Fixed Public Dashboard Stats & IGD Observasi Recap)
  * ============================================================================
  */
 
@@ -780,9 +780,12 @@ const App = () => {
           // Penanganan Aman JSON Parse
           nicuActions: (decNicuActions && !decNicuActions.startsWith('ENC:')) ? JSON.parse(decNicuActions || "[]") : [],
           
-          // Metadata statistik (selalu gunakan versi bersih)
-          statsRoom: cleanENC(d(data.room)),
-          statsPayment: cleanENC(d(data.paymentStatus))
+          // Metadata statistik (Prioritaskan versi RAW agar tetap terekap saat terkunci)
+          statsRoom: data.room_raw || cleanENC(d(data.room)),
+          statsPayment: data.paymentStatus_raw || cleanENC(d(data.paymentStatus)),
+          statsFollowUp: data.followUp_raw || cleanENC(d(data.followUp)),
+          statsStatus: data.status_raw || cleanENC(d(data.status)),
+          statsAdmissionDate: data.admissionDate_raw || cleanENC(d(data.admissionDate))
         };
 
         // Jika gembok terkunci, sensor data identitas utama
@@ -817,15 +820,25 @@ const App = () => {
     const stats = {};
     rooms.forEach(r => {
       const isPoli = r.name.includes('POLI');
+      const isOK = r.name.includes('OK') || r.name.includes('BEDAH SENTRAL');
+      
       const activePts = patients.filter(p => {
+          // Selalu gunakan kolom 'stats' (RAW) agar rekap tidak hilang saat gembok terkunci
           const roomNameMatch = (p.statsRoom || p.room) === r.name;
-          if (isPoli) {
-              return roomNameMatch && p.admissionDate === report.date;
+          const pDate = p.statsAdmissionDate || p.admissionDate;
+          
+          if (isPoli || isOK) {
+              // Poli dan OK reset harian berdasarkan tanggal masuk
+              return roomNameMatch && pDate === report.date;
           } else {
               if (['IGD', 'IGD PONEK'].includes(r.name)) {
-                  return roomNameMatch && p.followUp === 'Observasi';
+                  // IGD & PONEK hanya merekap yang DIOBSERVASI
+                  const fup = p.statsFollowUp || p.followUp;
+                  return roomNameMatch && fup === 'Observasi';
               }
-              return roomNameMatch && p.status === 'Dirawat /Inap';
+              // Rawat Inap lainnya berdasarkan status aktif
+              const st = p.statsStatus || p.status;
+              return roomNameMatch && st === 'Dirawat /Inap';
           }
       });
       
@@ -1053,7 +1066,7 @@ const App = () => {
       doctorIGD: '', doctorIntern: '', doctorDPJP: '',
       diagnosisPrimary: '', diagnosisSecondary: '',
       entryStatus: 'Non Rujukan', serviceType: 'Non Bedah Lainnya',
-      followUp: 'Pindah Ruangan', exitNote: '',
+      followUp: 'Observasi', exitNote: '',
       isDeadInIGD: false, isDOA: false, isInjury: false, isFalseEmergency: false,
       classRoom: 'III', jknType: 'PBI (APBD)', doctorKonsul: '',
       tariff: '', icd10Code: '', action: '', hp: '', notes: '',
@@ -1087,7 +1100,9 @@ const App = () => {
 
     if (confirmModal.type === 'save_patient') {
       setIsSaving(true);
-      // Data dienkripsi sebelum masuk database
+      
+      // KOLOM RAW: Disimpan tanpa enkripsi untuk keperluan statistik dashboard
+      // (Aman karena hanya berupa kategori, bukan identitas personal)
       const payload = {
         name: encrypt(patientFormData.name, patientMasterKey),
         age: encrypt(patientFormData.age, patientMasterKey),
@@ -1097,6 +1112,15 @@ const App = () => {
         gender: encrypt(patientFormData.gender, patientMasterKey),
         admissionDate: encrypt(patientFormData.admissionDate, patientMasterKey),
         status: encrypt(patientFormData.status, patientMasterKey),
+        followUp: encrypt(patientFormData.followUp || '', patientMasterKey),
+        
+        // Metadata mentah untuk statistik dashboard (Akses Publik Tanpa Gembok)
+        room_raw: patientFormData.room,
+        followUp_raw: patientFormData.followUp,
+        status_raw: patientFormData.status,
+        paymentStatus_raw: patientFormData.paymentStatus,
+        admissionDate_raw: patientFormData.admissionDate,
+
         outcomeDate: encrypt(patientFormData.outcomeDate || '', patientMasterKey),
         mrn: encrypt(patientFormData.mrn || '', patientMasterKey),
         nik: encrypt(patientFormData.nik || '', patientMasterKey),
@@ -1110,7 +1134,6 @@ const App = () => {
         diagnosisSecondary: encrypt(patientFormData.diagnosisSecondary || '', patientMasterKey),
         entryStatus: encrypt(patientFormData.entryStatus || '', patientMasterKey),
         serviceType: encrypt(patientFormData.serviceType || '', patientMasterKey),
-        followUp: encrypt(patientFormData.followUp || '', patientMasterKey),
         exitNote: encrypt(patientFormData.exitNote || '', patientMasterKey),
         isDeadInIGD: encrypt(String(patientFormData.isDeadInIGD || false), patientMasterKey),
         isDOA: encrypt(String(patientFormData.isDOA || false), patientMasterKey),
@@ -1148,7 +1171,7 @@ const App = () => {
         const defaultRoomName = loggedInRoomId ? rooms.find(r => r.id === loggedInRoomId)?.name || '' : '';
         setPatientFormData({ 
             name: '', age: '', room: defaultRoomName, address: '', gender: 'Laki-Laki', paymentStatus: 'BPJS', admissionDate: report.date || new Date().toISOString().split('T')[0], status: 'Dirawat /Inap', outcomeDate: '', specialization: '', operationCategory: '', operationStatus: '',
-            visitType: 'Baru', specializationManual: '', followUpService: 'Dirawat', birthWeight: '', nicuActions: [], nicuActionManual: ''
+            visitType: 'Baru', specializationManual: '', followUpService: 'Dirawat', birthWeight: '', nicuActions: [], nicuActionManual: '', followUp: 'Observasi'
         });
       } catch (e) {
         showToast("Gagal simpan: Error jaringan", "error");
@@ -1314,7 +1337,7 @@ const App = () => {
 
     const htmlContent = `
       <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-      <head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Laporan ${currentMonth}</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+      <head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><!--[if gte gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Laporan ${currentMonth}</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
       <style>body { font-family: Calibri, Arial, sans-serif; font-size: 12pt; color: #000000; } table { border-collapse: collapse; width: 100%; mso-displayed-decimal-separator:"\,"; mso-displayed-thousand-separator:"\."; } td, th { border: .5pt solid #000000; } br { mso-data-placement:same-cell; }</style></head>
       <body>
         <table>
@@ -1598,7 +1621,7 @@ const App = () => {
                       <span className="text-[8px] uppercase tracking-wider opacity-70">UMUM</span>
                       <span className="text-amber-600 text-sm font-black">{Number(finalReport[r.umumKey] || 0)}</span>
                     </div>
-                  </div>
+                  </div>9
                   {!isPoli && (
                     <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden w-full">
                       <div 

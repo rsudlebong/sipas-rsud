@@ -5,7 +5,7 @@
  * * Deskripsi:
  * Aplikasi ini digunakan untuk manajemen pelaporan harian pasien, 
  * pendaftaran pasien baru, pencarian data pasien, dan ekspor laporan ke Excel.
- * * Versi: 2.5 (Fixed Public Dashboard Stats & Removed Stray Character)
+ * * Versi: 2.6 (Fixed Auto-Recap for IGD/PONEK & Clean UI)
  * ============================================================================
  */
 
@@ -1101,7 +1101,7 @@ const App = () => {
     if (confirmModal.type === 'save_patient') {
       setIsSaving(true);
       
-      // KOLOM RAW: Disimpan tanpa enkripsi untuk keperluan statistik dashboard
+      // KOLOM RAW: Disimpan tanpa enkripsi untuk statistik dashboard
       const payload = {
         name: encrypt(patientFormData.name, patientMasterKey),
         age: encrypt(patientFormData.age, patientMasterKey),
@@ -1113,7 +1113,7 @@ const App = () => {
         status: encrypt(patientFormData.status, patientMasterKey),
         followUp: encrypt(patientFormData.followUp || '', patientMasterKey),
         
-        // Metadata mentah untuk statistik dashboard (Akses Publik Tanpa Gembok)
+        // Metadata mentah untuk statistik dashboard (Penting untuk IGD PONEK Observasi)
         room_raw: patientFormData.room,
         followUp_raw: patientFormData.followUp,
         status_raw: patientFormData.status,
@@ -2076,7 +2076,7 @@ const App = () => {
                             roomPatients.map(p => (
                               <GlassContainer key={p.id} className="rounded-3xl p-5 flex justify-between items-center group hover:border-indigo-200 transition-colors">
                                 <div className="flex items-center gap-5">
-                                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl shadow-lg ${p.gender === 'Laki-Laki' ? 'bg-blue-500 text-white' : 'bg-rose-500 text-white'}`}>
+                                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl shadow-lg ${p.gender === 'Laki-Laki' ? 'bg-blue-500 text-white' : 'bg-rose-50 text-white'}`}>
                                     {p.name.charAt(0)}
                                   </div>
                                   <div>
@@ -2618,7 +2618,7 @@ const App = () => {
                                 </div>
                                 <div className="space-y-2">
                                   <label className="text-[11px] font-bold text-slate-500 uppercase ml-1">Alamat Domisili</label>
-                                  <textarea rows="3" className="w-full bg-slate-50 focus:bg-white rounded-2xl py-4 px-5 text-sm font-bold border border-slate-200 outline-none focus:border-indigo-500 resize-none" value={patientFormData.address} onChange={e => setPatientFormData({ ...patientFormData, address: e.target.value })} placeholder="Alamat lengkap..."></textarea>
+                                  <textarea rows="3" className="w-full bg-slate-50 focus:bg-white rounded-2xl py-4 px-5 text-sm font-bold border border-slate-200 outline-none resize-none" value={patientFormData.address} onChange={e => setPatientFormData({ ...patientFormData, address: e.target.value })} placeholder="Alamat lengkap..."></textarea>
                                 </div>
                                 <div className="space-y-2"><label className="text-[11px] font-bold text-slate-500 uppercase ml-1">Dokter IGD</label><input className="w-full bg-slate-50 focus:bg-white rounded-2xl py-4 px-5 text-sm font-bold border border-slate-200 outline-none focus:border-indigo-500" value={patientFormData.doctorIGD} onChange={e => setPatientFormData({ ...patientFormData, doctorIGD: e.target.value })} placeholder="Nama Dokter Jaga" /></div>
                                 <div className="space-y-2"><label className="text-[11px] font-bold text-slate-500 uppercase ml-1">Dokter DPJP</label><input className="w-full bg-slate-50 focus:bg-white rounded-2xl py-4 px-5 text-sm font-bold border border-slate-200 outline-none focus:border-indigo-500" value={patientFormData.doctorDPJP} onChange={e => setPatientFormData({ ...patientFormData, doctorDPJP: e.target.value })} placeholder="Nama Dokter DPJP" /></div>

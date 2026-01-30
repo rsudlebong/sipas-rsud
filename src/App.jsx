@@ -5,7 +5,7 @@
  * * Deskripsi:
  * Aplikasi ini digunakan untuk manajemen pelaporan harian pasien, 
  * pendaftaran pasien baru, pencarian data pasien, dan ekspor laporan ke Excel.
- * * Versi: 2.6 (Fixed Auto-Recap for IGD/PONEK & Clean UI)
+ * * Versi: 2.7 (Fixed Poli/OK Daily Reset & Raw Field Statistics)
  * ============================================================================
  */
 
@@ -828,7 +828,8 @@ const App = () => {
           const pDate = p.statsAdmissionDate || p.admissionDate;
           
           if (isPoli || isOK) {
-              // Poli dan OK reset harian berdasarkan tanggal masuk
+              // Poli dan OK reset harian berdasarkan kecocokan tanggal laporan (report.date)
+              // Jika tanggal laporan berubah, pasien hari kemarin tidak akan terekap (kembali nol)
               return roomNameMatch && pDate === report.date;
           } else {
               if (['IGD', 'IGD PONEK'].includes(r.name)) {
@@ -836,7 +837,7 @@ const App = () => {
                   const fup = p.statsFollowUp || p.followUp;
                   return roomNameMatch && fup === 'Observasi';
               }
-              // Rawat Inap lainnya berdasarkan status aktif
+              // Ruangan Rawat Inap Ward lainnya berdasarkan status aktif
               const st = p.statsStatus || p.status;
               return roomNameMatch && st === 'Dirawat /Inap';
           }
@@ -1101,7 +1102,7 @@ const App = () => {
     if (confirmModal.type === 'save_patient') {
       setIsSaving(true);
       
-      // KOLOM RAW: Disimpan tanpa enkripsi untuk statistik dashboard
+      // KOLOM RAW: Disimpan tanpa enkripsi untuk keperluan statistik dashboard (IGD PONEK Observasi & Reset Poli)
       const payload = {
         name: encrypt(patientFormData.name, patientMasterKey),
         age: encrypt(patientFormData.age, patientMasterKey),
@@ -1113,7 +1114,7 @@ const App = () => {
         status: encrypt(patientFormData.status, patientMasterKey),
         followUp: encrypt(patientFormData.followUp || '', patientMasterKey),
         
-        // Metadata mentah untuk statistik dashboard (Penting untuk IGD PONEK Observasi)
+        // Metadata mentah untuk statistik dashboard (Akses Publik Tanpa Gembok)
         room_raw: patientFormData.room,
         followUp_raw: patientFormData.followUp,
         status_raw: patientFormData.status,

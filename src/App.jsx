@@ -5,7 +5,7 @@
  * * Deskripsi:
  * Aplikasi ini digunakan untuk manajemen pelaporan harian pasien, 
  * pendaftaran pasien baru, pencarian data pasien, dan ekspor laporan ke Excel.
- * * Versi: 2.7 (Fixed Poli/OK Daily Reset & Raw Field Statistics)
+ * * Versi: 2.8 (Standard Real-time Date & Fixed Poli/OK Daily Reset)
  * ============================================================================
  */
 
@@ -166,12 +166,10 @@ const formatDateID = (dateStr) => {
 };
 
 /**
- * Mengambil tanggal pelaporan saat ini.
- * Jika waktu di bawah jam 07:00 pagi, maka dianggap hari sebelumnya (Siklus RS).
+ * Mengambil tanggal pelaporan saat ini (Real-time 00:00).
  */
 const getReportingDate = () => {
   const now = new Date();
-  if (now.getHours() < 7) now.setDate(now.getDate() - 1);
   const offset = now.getTimezoneOffset() * 60000;
   return new Date(now.getTime() - offset).toISOString().slice(0, 10);
 };

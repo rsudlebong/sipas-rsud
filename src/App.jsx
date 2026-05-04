@@ -184,6 +184,8 @@ const calculateAgeDetail = (birthDateStr) => {
   const now = new Date();
   if (isNaN(birth.getTime())) return { years: '', months: '', days: '' };
 
+  if (birth > now) return { years: 0, months: 0, days: 0 };
+
   let years = now.getFullYear() - birth.getFullYear();
   let months = now.getMonth() - birth.getMonth();
   let days = now.getDate() - birth.getDate();
@@ -371,7 +373,7 @@ const NumberInput = ({
     if (val === '') { 
       onChange(0); 
     } else { 
-      const parsed = parseInt(val); 
+      const parsed = parseFloat(val); 
       if (!isNaN(parsed)) onChange(parsed); 
     } 
   };
@@ -457,12 +459,12 @@ const RoomCard = memo(({ room, report, onChange, onSave, isAdmin, onDeleteRoom, 
                   </button>
                 )}
               </h3>
-            )}
-            {!isPoli && <p className="text-[10px] font-bold opacity-60 tracking-widest text-slate-700">KAPASITAS: {report[room.ttKey] || room.defaultTT}</p>}
-            {isPoli && <p className="text-[10px] font-bold opacity-60 tracking-widest text-slate-700">KUNJUNGAN HARI INI</p>}
-          </div>
+          )}
+          {!isPoli && <p className="text-[10px] font-bold opacity-60 tracking-widest text-slate-700">KAPASITAS: {report[room.ttKey] !== undefined && report[room.ttKey] !== '' ? report[room.ttKey] : room.defaultTT}</p>}
+          {isPoli && <p className="text-[10px] font-bold opacity-60 tracking-widest text-slate-700">KUNJUNGAN HARI INI</p>}
         </div>
-        {isAdmin && (
+      </div>
+      {isAdmin && (
           <button 
             onClick={() => onDeleteRoom(room.id)} 
             className="p-2.5 bg-white/30 text-slate-700 rounded-xl hover:bg-rose-500/80 hover:text-white transition-colors backdrop-blur-sm shrink-0 ml-2"
@@ -476,7 +478,7 @@ const RoomCard = memo(({ room, report, onChange, onSave, isAdmin, onDeleteRoom, 
         {!isPoli && (
           <NumberInput 
             label="TT" 
-            value={report[room.ttKey] || room.defaultTT} 
+            value={report[room.ttKey] !== undefined && report[room.ttKey] !== '' ? report[room.ttKey] : room.defaultTT} 
             onChange={(val) => onChange(room.ttKey, val)} 
             onBlur={onSave} 
             bgClass="bg-white/50" 
@@ -581,6 +583,9 @@ const App = () => {
   const [editingPatient, setEditingPatient] = useState(null);
   const [patientMasterKey, setPatientMasterKey] = useState(sessionStorage.getItem('rs_session_key') || '');
   const [isPatientLocked, setIsPatientLocked] = useState(!sessionStorage.getItem('rs_session_key'));
+  
+  // STATE BARU: Menyimpan data mentah dari Firebase untuk mencegah re-fetch
+  const [rawPatients, setRawPatients] = useState([]);
   
   /**
    * Data Formulir Pasien Baru / Edit
@@ -707,107 +712,128 @@ const App = () => {
       const currentData = sorted.find(r => r.date === currentReportingDate);
       if (currentData) setReport(prev => ({ ...prev, ...currentData }));
       else setReport({ ...initialReportData, date: currentReportingDate });
-    });
+    }, (error) => console.error("Reports Error:", error));
 
-    // Listen Data Pasien (Fixed Boolean & Full Mapping Decryption & JSON Parse Error)
+    // Listen Data Pasien (Hanya mengambil data mentah, tanpa dekripsi disini)
     const unsubPatients = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'patients'), (snapshot) => {
-      const decryptedData = snapshot.docs.map(doc => {
-        const data = doc.data();
-        const k = patientMasterKey;
-        
-        // Fungsi helper dekripsi cepat
-        const d = (val) => decrypt(val, k);
-        const maskIcon = '••••'; // Simbol titik-titik untuk sensor
-
-        // Helper untuk membersihkan teks ENC: yang bocor jika dekripsi gagal
-        const cleanENC = (text) => (String(text).startsWith('ENC:') ? maskIcon : text);
-
-        // Dekripsi field string dasar
-        const decName = d(data.name);
-        const decNicuActions = d(data.nicuActions);
-
-        // Petakan semua kolom yang dienkripsi dan pastikan tidak ada kebocoran ENC:
-        const res = {
-          id: doc.id,
-          ...data,
-          name: cleanENC(decName),
-          age: cleanENC(d(data.age)),
-          address: cleanENC(d(data.address)),
-          room: cleanENC(d(data.room)),
-          paymentStatus: cleanENC(d(data.paymentStatus)),
-          gender: cleanENC(d(data.gender)),
-          admissionDate: cleanENC(d(data.admissionDate)),
-          status: cleanENC(d(data.status)),
-          outcomeDate: cleanENC(d(data.outcomeDate)),
-          mrn: cleanENC(d(data.mrn)),
-          nik: cleanENC(d(data.nik)),
-          birthDate: cleanENC(d(data.birthDate)),
-          ageMonth: cleanENC(d(data.ageMonth)),
-          ageDay: cleanENC(d(data.ageDay)),
-          doctorIGD: cleanENC(d(data.doctorIGD)),
-          doctorIntern: cleanENC(d(data.doctorIntern)),
-          doctorDPJP: cleanENC(d(data.doctorDPJP)),
-          diagnosisPrimary: cleanENC(d(data.diagnosisPrimary)),
-          diagnosisSecondary: cleanENC(d(data.diagnosisSecondary)),
-          entryStatus: cleanENC(d(data.entryStatus)),
-          serviceType: cleanENC(d(data.serviceType)),
-          followUp: cleanENC(d(data.followUp)),
-          exitNote: cleanENC(d(data.exitNote)),
-          classRoom: cleanENC(d(data.classRoom)),
-          jknType: cleanENC(d(data.jknType)),
-          doctorKonsul: cleanENC(d(data.doctorKonsul)),
-          icd10Code: cleanENC(d(data.icd10Code)),
-          tariff: cleanENC(d(data.tariff)),
-          action: cleanENC(d(data.action)),
-          hp: cleanENC(d(data.hp)),
-          notes: cleanENC(d(data.notes)),
-          specialization: cleanENC(d(data.specialization)),
-          operationCategory: cleanENC(d(data.operationCategory)),
-          operationStatus: cleanENC(d(data.operationStatus)),
-          visitType: cleanENC(d(data.visitType)),
-          followUpService: cleanENC(d(data.followUpService)),
-          birthWeight: cleanENC(d(data.birthWeight)),
-          nicuActionManual: cleanENC(d(data.nicuActionManual)),
-          
-          // Konversi nilai Boolean
-          isDeadInIGD: d(data.isDeadInIGD) === 'true',
-          isDOA: d(data.isDOA) === 'true',
-          isInjury: d(data.isInjury) === 'true',
-          isFalseEmergency: d(data.isFalseEmergency) === 'true',
-          
-          // Penanganan Aman JSON Parse
-          nicuActions: (decNicuActions && !decNicuActions.startsWith('ENC:')) ? JSON.parse(decNicuActions || "[]") : [],
-          
-          // Metadata statistik (Prioritaskan versi RAW agar tetap terekap saat terkunci)
-          statsRoom: data.room_raw || cleanENC(d(data.room)),
-          statsPayment: data.paymentStatus_raw || cleanENC(d(data.paymentStatus)),
-          statsFollowUp: data.followUp_raw || cleanENC(d(data.followUp)),
-          statsStatus: data.status_raw || cleanENC(d(data.status)),
-          statsAdmissionDate: data.admissionDate_raw || cleanENC(d(data.admissionDate))
-        };
-
-        // Jika gembok terkunci, sensor data identitas utama
-        if (isPatientLocked) {
-          return {
-            ...res,
-            name: maskIcon, 
-            age: maskIcon.substring(0, 2), 
-            address: maskIcon, 
-            mrn: maskIcon, 
-            nik: maskIcon,
-            birthDate: maskIcon
-          };
-        }
-
-        return res;
-      });
-      setPatients(decryptedData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
-    });
+      const rawData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setRawPatients(rawData);
+    }, (error) => console.error("Patients Error:", error));
 
     return () => { 
       unsubAuth(); unsubRooms(); unsubReports(); unsubPatients(); 
     };
-  }, [user, patientMasterKey, isPatientLocked]);
+  }, [user]); 
+
+  /**
+   * PROSES DEKRIPSI LOKAL (TIDAK MEMAKAN KUOTA FIREBASE)
+   * Hanya berjalan di memori perangkat saat gembok dibuka/ditutup
+   */
+  useEffect(() => {
+    if (rawPatients.length === 0) {
+      setPatients([]);
+      return;
+    }
+
+    const decryptedData = rawPatients.map(data => {
+      const k = patientMasterKey;
+      
+      // Fungsi helper dekripsi cepat
+      const d = (val) => decrypt(val, k);
+      const maskIcon = '••••'; // Simbol titik-titik untuk sensor
+
+      // Helper untuk membersihkan teks ENC: yang bocor jika dekripsi gagal
+      const cleanENC = (text) => (String(text).startsWith('ENC:') ? maskIcon : text);
+
+      // Dekripsi field string dasar
+      const decName = d(data.name);
+      const decNicuActions = d(data.nicuActions);
+
+      // PERBAIKAN BUG #1: Prioritaskan versi `_raw` (tanpa sensor) untuk kolom-kolom 
+      // yang digunakan dalam logika / filter aplikasi agar pasien tidak menghilang saat digembok.
+      const res = {
+        id: data.id,
+        ...data,
+        
+        // Kolom logika & filter (Selalu terlihat utuh jika ada _raw)
+        room: data.room_raw || cleanENC(d(data.room)),
+        paymentStatus: data.paymentStatus_raw || cleanENC(d(data.paymentStatus)),
+        status: data.status_raw || cleanENC(d(data.status)),
+        followUp: data.followUp_raw || cleanENC(d(data.followUp)),
+        admissionDate: data.admissionDate_raw || cleanENC(d(data.admissionDate)),
+        gender: data.gender_raw || cleanENC(d(data.gender)),
+        operationCategory: data.operationCategory_raw || cleanENC(d(data.operationCategory)),
+        visitType: data.visitType_raw || cleanENC(d(data.visitType)),
+        
+        // Kolom Privasi / PII
+        name: cleanENC(decName),
+        age: cleanENC(d(data.age)),
+        address: cleanENC(d(data.address)),
+        outcomeDate: cleanENC(d(data.outcomeDate)),
+        mrn: cleanENC(d(data.mrn)),
+        nik: cleanENC(d(data.nik)),
+        birthDate: cleanENC(d(data.birthDate)),
+        ageMonth: cleanENC(d(data.ageMonth)),
+        ageDay: cleanENC(d(data.ageDay)),
+        doctorIGD: cleanENC(d(data.doctorIGD)),
+        doctorIntern: cleanENC(d(data.doctorIntern)),
+        doctorDPJP: cleanENC(d(data.doctorDPJP)),
+        diagnosisPrimary: cleanENC(d(data.diagnosisPrimary)),
+        diagnosisSecondary: cleanENC(d(data.diagnosisSecondary)),
+        entryStatus: cleanENC(d(data.entryStatus)),
+        serviceType: cleanENC(d(data.serviceType)),
+        exitNote: cleanENC(d(data.exitNote)),
+        classRoom: cleanENC(d(data.classRoom)),
+        jknType: cleanENC(d(data.jknType)),
+        doctorKonsul: cleanENC(d(data.doctorKonsul)),
+        icd10Code: cleanENC(d(data.icd10Code)),
+        tariff: cleanENC(d(data.tariff)),
+        action: cleanENC(d(data.action)),
+        hp: cleanENC(d(data.hp)),
+        notes: cleanENC(d(data.notes)),
+        specialization: cleanENC(d(data.specialization)),
+        followUpService: cleanENC(d(data.followUpService)),
+        birthWeight: cleanENC(d(data.birthWeight)),
+        nicuActionManual: cleanENC(d(data.nicuActionManual)),
+        
+        // Konversi nilai Boolean
+        isDeadInIGD: d(data.isDeadInIGD) === 'true',
+        isDOA: d(data.isDOA) === 'true',
+        isInjury: d(data.isInjury) === 'true',
+        isFalseEmergency: d(data.isFalseEmergency) === 'true',
+        
+        // Penanganan Aman JSON Parse
+        nicuActions: (decNicuActions && !decNicuActions.startsWith('ENC:')) ? JSON.parse(decNicuActions || "[]") : [],
+        
+        // Metadata statistik
+        statsRoom: data.room_raw || cleanENC(d(data.room)),
+        statsPayment: data.paymentStatus_raw || cleanENC(d(data.paymentStatus)),
+        statsFollowUp: data.followUp_raw || cleanENC(d(data.followUp)),
+        statsStatus: data.status_raw || cleanENC(d(data.status)),
+        statsAdmissionDate: data.admissionDate_raw || cleanENC(d(data.admissionDate))
+      };
+
+      // Jika gembok terkunci, SENSOR HANYA data identitas utama
+      if (isPatientLocked) {
+        return {
+          ...res,
+          name: maskIcon, 
+          age: maskIcon.substring(0, 2), 
+          address: maskIcon, 
+          mrn: maskIcon, 
+          nik: maskIcon,
+          birthDate: maskIcon
+        };
+      }
+
+      return res;
+    });
+    
+    setPatients(decryptedData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+  }, [rawPatients, patientMasterKey, isPatientLocked]);
 
   // --- C. KALKULASI MEMOIZED & FILTERING ---
 
@@ -1078,6 +1104,9 @@ const App = () => {
 
   const handleSaveReport = async () => {
     if (!user) return showToast("Tidak ada koneksi", "error");
+    if (isSaving) return;
+    setIsSaving(true);
+    
     const dataToSave = finalReport;
     const existing = savedReports.find(r => r.date === dataToSave.date);
     try {
@@ -1086,11 +1115,13 @@ const App = () => {
       } else {
         await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'reports'), { ...dataToSave, createdAt: Date.now(), updatedBy: user.uid });
       }
-      if (!isSaving) showToast("Perubahan Disimpan");
+      showToast("Perubahan Disimpan");
       setEditingId(null);
       setEditFormData(null);
     } catch (e) {
       showToast("Gagal simpan: " + e.message, "error");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1100,7 +1131,8 @@ const App = () => {
     if (confirmModal.type === 'save_patient') {
       setIsSaving(true);
       
-      // KOLOM RAW: Disimpan tanpa enkripsi untuk keperluan statistik dashboard (IGD PONEK Observasi & Reset Poli)
+      // PERBAIKAN BUG #1: Menyimpan data mentah `_raw` tambahan untuk memastikan 
+      // pasien tidak hilang/terfilter otomatis saat digembok di kemudian hari.
       const payload = {
         name: encrypt(patientFormData.name, patientMasterKey),
         age: encrypt(patientFormData.age, patientMasterKey),
@@ -1111,13 +1143,18 @@ const App = () => {
         admissionDate: encrypt(patientFormData.admissionDate, patientMasterKey),
         status: encrypt(patientFormData.status, patientMasterKey),
         followUp: encrypt(patientFormData.followUp || '', patientMasterKey),
+        operationCategory: encrypt(patientFormData.operationCategory || '', patientMasterKey),
+        visitType: encrypt(patientFormData.visitType || '', patientMasterKey),
         
-        // Metadata mentah untuk statistik dashboard (Akses Publik Tanpa Gembok)
-        room_raw: patientFormData.room,
-        followUp_raw: patientFormData.followUp,
-        status_raw: patientFormData.status,
-        paymentStatus_raw: patientFormData.paymentStatus,
-        admissionDate_raw: patientFormData.admissionDate,
+        // Metadata mentah untuk statistik dashboard & Filter UI (Akses Publik Tanpa Gembok)
+        room_raw: patientFormData.room || '',
+        followUp_raw: patientFormData.followUp || '',
+        status_raw: patientFormData.status || '',
+        paymentStatus_raw: patientFormData.paymentStatus || '',
+        admissionDate_raw: patientFormData.admissionDate || '',
+        gender_raw: patientFormData.gender || '',
+        operationCategory_raw: patientFormData.operationCategory || '',
+        visitType_raw: patientFormData.visitType || '',
 
         outcomeDate: encrypt(patientFormData.outcomeDate || '', patientMasterKey),
         mrn: encrypt(patientFormData.mrn || '', patientMasterKey),
@@ -1146,9 +1183,7 @@ const App = () => {
         hp: encrypt(patientFormData.hp || '', patientMasterKey),
         notes: encrypt(patientFormData.notes || '', patientMasterKey),
         specialization: encrypt(patientFormData.specialization === 'Spesialisasi Lain' ? patientFormData.specializationManual : patientFormData.specialization || '', patientMasterKey),
-        operationCategory: encrypt(patientFormData.operationCategory || '', patientMasterKey),
         operationStatus: encrypt(patientFormData.operationStatus || '', patientMasterKey),
-        visitType: encrypt(patientFormData.visitType || '', patientMasterKey),
         followUpService: encrypt(patientFormData.followUpService || '', patientMasterKey),
         updatedAt: new Date().toISOString(),
         updatedBy: user.uid,
@@ -1198,7 +1233,7 @@ const App = () => {
     if (!user) { showToast("Anda harus login terlebih dahulu", "error"); return; }
     if (isPatientLocked) { showToast("Akses Terkunci! Masukkan kode gembok untuk menyimpan.", "error"); return; }
 
-    if (!patientFormData.name || !patientFormData.age || !patientFormData.address || !patientFormData.admissionDate || !patientFormData.room) {
+    if (!patientFormData.name || patientFormData.age === '' || patientFormData.age === null || patientFormData.age === undefined || !patientFormData.address || !patientFormData.admissionDate || !patientFormData.room) {
       showToast("Gagal simpan: Semua data wajib diisi!", "error");
       return;
     }
@@ -1242,6 +1277,12 @@ const App = () => {
    * Fungsi Ekspor Laporan ke Excel (.xls)
    */
   const handleDownloadExcel = () => {
+    // PERBAIKAN BUG #2: Cegah ekspor excel berisi file sampah (tersensor '••••') ketika gembok masih terkunci
+    if (isPatientLocked) {
+      showToast("Buka gembok terlebih dahulu untuk mengekspor data!", "error");
+      return;
+    }
+
     const dateObj = new Date(downloadSettings.month);
     const monthNames = ["JANUARI", "FEBRUARI", "MARET", "APRIL", "MEI", "JUNI", "JULI", "AGUSTUS", "SEPTEMBER", "OKTOBER", "NOVEMBER", "DESEMBER"];
     const currentMonth = monthNames[dateObj.getMonth()];
@@ -1474,7 +1515,8 @@ const App = () => {
                         <td className="p-4 border-r border-slate-100 whitespace-nowrap">{p.room}</td>
                         <td className="p-4 font-bold text-slate-800 border-r border-slate-100 whitespace-nowrap">
                           {p.name}
-                          {p.jenisOperasi && <span className="block text-[9px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded w-fit mt-1">{p.jenisOperasi}</span>}
+                          {/* PERBAIKAN BUG #3: Menyesuaikan pemanggilan variabel kategori operasi */}
+                          {p.operationCategory && <span className="block text-[9px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded w-fit mt-1">{p.operationCategory}</span>}
                           {['IGD', 'IGD PONEK'].includes(p.room) && p.diagnosisPrimary && <span className="block text-[9px] text-slate-500 font-normal mt-1 max-w-[150px] truncate">{p.diagnosisPrimary}</span>}
                           {p.room === 'NICU' && p.birthWeight && <span className="block text-[9px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded w-fit mt-1">{p.birthWeight} gram</span>}
                         </td>
@@ -1535,7 +1577,7 @@ const App = () => {
     );
 
     const totalInpatient = borRooms.reduce((acc, r) => acc + Number(finalReport[r.pasienKey] || 0), 0);
-    const totalTT = borRooms.reduce((acc, r) => acc + Number(finalReport[r.ttKey] || r.defaultTT || 0), 0);
+    const totalTT = borRooms.reduce((acc, r) => acc + Number(finalReport[r.ttKey] !== undefined && finalReport[r.ttKey] !== '' ? finalReport[r.ttKey] : r.defaultTT), 0);
     const totalBor = totalTT > 0 ? (totalInpatient / totalTT) * 100 : 0;
     const totalPoli = poliRooms.reduce((acc, r) => acc + Number(finalReport[r.pasienKey] || 0), 0);
 
@@ -1587,13 +1629,15 @@ const App = () => {
           {rooms.map(r => {
             const filled = Number(finalReport[r.pasienKey] || 0) > 0;
             const isPoli = r.name.includes('POLI');
-            const pct = isPoli ? 100 : Number(finalReport[r.pasienKey] || 0) / Number(finalReport[r.ttKey] || r.defaultTT || 1) * 100;
+            const isExcludedBOR = excludeForBOR.includes(r.name);
+            const capacityTT = Number(finalReport[r.ttKey] !== undefined && finalReport[r.ttKey] !== '' ? finalReport[r.ttKey] : r.defaultTT);
+            const pct = isPoli ? 100 : (capacityTT > 0 ? (Number(finalReport[r.pasienKey] || 0) / capacityTT) * 100 : 0);
             return (
               <GlassContainer key={r.id} className="rounded-[2rem] p-5 flex flex-col justify-between hover:bg-white/80 transition-all cursor-default min-h-[140px]">
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex items-center gap-3">
                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xs text-white shadow-lg ${filled ? (r.cardGradient || 'bg-blue-500') : 'bg-slate-200'}`}>
-                      {filled ? (isPoli ? 'ON' : `${pct.toFixed(0)}%`) : (isPoli ? 'OFF' : '0%')}
+                      {filled ? (isPoli || isExcludedBOR ? 'ON' : `${pct.toFixed(0)}%`) : (isPoli || isExcludedBOR ? 'OFF' : '0%')}
                     </div>
                     <div>
                       <span className="text-[10px] font-black uppercase text-slate-700 tracking-wide block">{r.name}</span>
@@ -1620,7 +1664,7 @@ const App = () => {
                       <span className="text-amber-600 text-sm font-black">{Number(finalReport[r.umumKey] || 0)}</span>
                     </div>
                   </div>
-                  {!isPoli && (
+                  {(!isPoli && !isExcludedBOR) && (
                     <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden w-full">
                       <div 
                         className={`${filled ? 'bg-indigo-500' : 'bg-slate-300'} h-full transition-all duration-1000`} 
@@ -2990,16 +3034,18 @@ const App = () => {
                                     <label className="text-[11px] font-bold text-slate-500 uppercase ml-1">Status Keluar</label>
                                     <select className="w-full bg-slate-50 focus:bg-white rounded-2xl py-4 px-5 text-sm font-bold border border-slate-200 outline-none focus:border-indigo-500" value={patientFormData.status} onChange={e => setPatientFormData({...patientFormData, status: e.target.value})}>
                                       <option value="Dirawat /Inap">Dirawat /Inap</option>
-                                      <option value="BLPL">BLPL</option>
-                                      <option value="APS">APS</option>
+                                      <option value="Pulang Sembuh">Pulang Sembuh</option>
+                                      <option value="Pulang Membaik">Pulang Membaik</option>
+                                      <option value="Pulang Paksa">Pulang Paksa (APS)</option>
+                                      <option value="Meninggal > 48 Jam">Meninggal &gt; 48 Jam</option>
+                                      <option value="Meninggal < 48 Jam">Meninggal &lt; 48 Jam</option>
                                       <option value="Pindah Ruangan">Pindah Ruangan</option>
-                                      <option value="Rujuk">Rujuk</option>
-                                      <option value="Meninggal">Meninggal</option>
+                                      <option value="Dirujuk">Dirujuk</option>
                                     </select>
                                   </div>
                                   <div className="space-y-2">
-                                    <label className="text-[11px] font-bold text-slate-500 uppercase ml-1">Keterangan Lain</label>
-                                    <input className="w-full bg-slate-50 focus:bg-white rounded-2xl py-4 px-5 text-sm font-bold border border-slate-200 outline-none focus:border-indigo-500" placeholder="Catatan" value={patientFormData.notes} onChange={e => setPatientFormData({...patientFormData, notes: e.target.value})} />
+                                    <label className="text-[11px] font-bold text-slate-500 uppercase ml-1">Keterangan Tambahan</label>
+                                    <input className="w-full bg-slate-50 focus:bg-white rounded-2xl py-4 px-5 text-sm font-bold border border-slate-200 outline-none focus:border-indigo-500" placeholder="Keterangan / Catatan" value={patientFormData.notes} onChange={e => setPatientFormData({...patientFormData, notes: e.target.value})} />
                                   </div>
                                 </div>
                               </div>

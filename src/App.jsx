@@ -2955,7 +2955,7 @@ const App = () => {
                                                 <label key={act} className="flex items-center space-x-3 cursor-pointer group">
                                                     <input type="checkbox" className="hidden" checked={(patientFormData.nicuActions || []).includes(act)} onChange={() => toggleNicuAction(act)} />
                                                     <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${(patientFormData.nicuActions || []).includes(act) ? 'bg-indigo-600 border-indigo-600 shadow-md' : 'bg-white border-slate-300'}`}>
-                                                      <Check size={12} className="text-white" strokeWidth={4} />
+                                                        <Check size={12} className="text-white" strokeWidth={4} />
                                                     </div>
                                                     <span className="text-[10px] font-bold text-slate-600 uppercase group-hover:text-indigo-600">{act}</span>
                                                 </label>
@@ -3034,8 +3034,7 @@ const App = () => {
                                     <label className="text-[11px] font-bold text-slate-500 uppercase ml-1">Status Keluar</label>
                                     <select className="w-full bg-slate-50 focus:bg-white rounded-2xl py-4 px-5 text-sm font-bold border border-slate-200 outline-none focus:border-indigo-500" value={patientFormData.status} onChange={e => setPatientFormData({...patientFormData, status: e.target.value})}>
                                       <option value="Dirawat /Inap">Dirawat /Inap</option>
-                                      <option value="Pulang Sembuh">Pulang Sembuh</option>
-                                      <option value="Pulang Membaik">Pulang Membaik</option>
+                                      <option value="BLPL">BLPL</option>
                                       <option value="Pulang Paksa">Pulang Paksa (APS)</option>
                                       <option value="Meninggal > 48 Jam">Meninggal &gt; 48 Jam</option>
                                       <option value="Meninggal < 48 Jam">Meninggal &lt; 48 Jam</option>
